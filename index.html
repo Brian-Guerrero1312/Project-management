@@ -225,6 +225,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .chart-card-title{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
 .chart-card-sub{font-size:10.5px;color:var(--text3);margin:-3px 0 6px;opacity:.85}
 #scr-reportes{--bg:#141a24;--bg2:#1b2330;--bg3:#0a0e16;--text:#f3f5f8;--text2:#93a0b4;--text3:#5f6b7d;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.16);--green:#35d399;--green-bg:rgba(53,211,153,.14);--green-dk:#24b184;--amber:#ef4b24;--amber-bg:rgba(239,75,36,.14);--amber-b:#c23c1b;--blue:#4f9cf9;--blue-bg:rgba(79,156,249,.14);--red:#ff5c72;--red-bg:rgba(255,92,114,.14);color:var(--text)}
+#scr-reportes input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1)}
 .chart-legend{display:flex;gap:16px;justify-content:center;margin-top:6px}
 .chart-legend-item{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text2)}
 .chart-legend-dot{width:9px;height:9px;border-radius:2px;display:inline-block}
@@ -554,17 +555,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="content">
       <div class="controls" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
         <div class="ctrl-field" style="flex:1;min-width:160px;margin:0"><label>Tienda</label><select id="rep-sel-store" onchange="onRepFilterChange()"><option value="">Todas las tiendas</option></select></div>
+        <div class="ctrl-field" style="min-width:150px;margin:0"><label>Día</label><input type="date" id="rep-sel-dia" onchange="onRepFilterChange()"></div>
+        <button class="btn-ghost" id="rep-btn-clear-dia" onclick="limpiarFiltroDia()" style="display:none"><i class="ti ti-x"></i> Quitar día</button>
         <button class="btn-ghost" onclick="descargarReportesCSV()"><i class="ti ti-download"></i> Descargar CSV</button>
       </div>
       <div class="rep-section-head"><span class="rep-badge">1</span><span class="rep-section-title">Resumen</span></div>
-      <div class="chart-card-sub" style="margin-bottom:8px">"Exactitud (cerradas)" solo considera órdenes ya cerradas; "Exactitud (contado)" incluye todo lo contado hasta ahora, esté cerrado o no. Sobrantes = se contó de más; faltantes = se contó de menos</div>
+      <div class="chart-card-sub" style="margin-bottom:8px">"Exactitud (cerradas)" solo considera órdenes ya cerradas; "Exactitud (contado)" incluye todo lo contado hasta ahora, esté cerrado o no. Sobrantes = se contó de más; faltantes = se contó de menos; "No precargados" son sobrantes que ni siquiera estaban en la lista (ya incluidos en Sobrantes, aquí aparte solo para verlos). El filtro de Día aplica aquí, en "Impacto por categoría" y en "Comparativa por tienda" (según cuándo se contó cada producto), no en las gráficas de Históricos ni en el Mapa de calor</div>
       <div id="rep-stats" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:22px"></div>
 
       <div class="rep-section-head"><span class="rep-badge">2</span><span class="rep-section-title">Históricos</span></div>
       <div class="rep-chart-grid">
         <div>
           <div class="chart-card-title">Progreso día con día</div>
-          <div class="chart-card-sub">Piezas contadas por día — el número de arriba es el total; el tramo ámbar es cuántas de esas tuvieron diferencia</div>
+          <div class="chart-card-sub">Todas las barras tienen la misma altura (composición del día, no volumen); el número de arriba es el total contado, y el tramo ámbar es qué proporción de eso tuvo diferencia</div>
           <div id="rep-chart-area" class="chart-wrap"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
         </div>
         <div>
@@ -584,6 +587,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div id="rep-cat-chart-area" class="chart-wrap" style="margin-bottom:1rem"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
       <div class="chart-card-title">Detalle por categoría</div>
       <div id="rep-cat-area"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
+
+      <div class="rep-section-head" style="justify-content:space-between;margin-top:22px">
+        <div style="display:flex;align-items:center;gap:8px"><span class="rep-badge">4</span><span class="rep-section-title">Comparativa por tienda</span></div>
+        <button class="btn-ghost" onclick="descargarComparativaCSV()"><i class="ti ti-download"></i> Descargar CSV</button>
+      </div>
+      <div class="chart-card-title">% Exactitud por tienda</div>
+      <div class="chart-card-sub">Tiendas ordenadas de menor a mayor exactitud, sobre todo lo contado</div>
+      <div id="rep-tiendas-chart-area" class="chart-wrap" style="margin-bottom:1rem"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
+      <div class="chart-card-title">Detalle por tienda</div>
+      <div id="rep-tiendas-area"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
+
+      <div class="rep-section-head" style="margin-top:22px">
+        <span class="rep-badge">5</span><span class="rep-section-title">Mapa de calor</span>
+      </div>
+      <div class="chart-card-title">Tienda × Día</div>
+      <div class="chart-card-sub">Muestra todo el histórico (no respeta los filtros de arriba) — cambia la vista para ver dónde se concentra la actividad o los problemas</div>
+      <div class="filter-pills" style="margin-bottom:10px">
+        <div class="fpill active" id="hm-tab-actividad" onclick="setMapaCalorModo('actividad')">Actividad</div>
+        <div class="fpill" id="hm-tab-problemas" onclick="setMapaCalorModo('problemas')">Problemas</div>
+      </div>
+      <div id="rep-heatmap-area" class="chart-wrap"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
     </div>
   </div>
 </div>
@@ -616,6 +640,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="fpill warn" onclick="setScFilter('mismatch',this)">⚠️ Con diferencia</div>
       </div>
       <div id="sc-product-area"></div>
+      <div style="margin-top:1.2rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em">Sobrantes no precargados</div>
+          <button type="button" class="link-alt" style="margin:0" id="sc-btn-extra" onclick="abrirModalExtra()"><i class="ti ti-plus"></i> Agregar</button>
+        </div>
+        <div id="sc-extra-area"></div>
+      </div>
     </div>
     <button class="scan-fab" id="sc-fab" onclick="openScanner()" title="Escanear producto"><i class="ti ti-barcode"></i></button>
   </div>
@@ -689,6 +720,38 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+<!-- MODAL: PRODUCTO SOBRANTE (encontrado físicamente pero que NO está en la Precarga del TR) -->
+<div id="modal-extra-overlay" class="modal-overlay" onclick="closeExtraModal(event)">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:420px">
+    <div class="modal-head">
+      <div class="modal-title">Producto no precargado</div>
+      <div class="modal-ean" style="font-size:11px;color:var(--text3);margin-top:-4px">Se registrará directo como sobrante — no había cantidad esperada con qué compararlo</div>
+    </div>
+    <div class="modal-body">
+      <div class="mfield">
+        <label>EAN</label>
+        <input type="text" id="sc-extra-ean" inputmode="numeric" placeholder="Código de barras" style="text-align:center">
+      </div>
+      <div class="mfield">
+        <label>Nombre (opcional)</label>
+        <input type="text" id="sc-extra-nombre" placeholder="Lo que diga la etiqueta del producto">
+      </div>
+      <div class="mfield">
+        <label>Cantidad física en buen estado</label>
+        <input type="number" id="sc-extra-input" min="0" inputmode="numeric" placeholder="0" style="font-size:22px;font-weight:600;text-align:center;padding:12px">
+      </div>
+      <div class="mfield">
+        <label>Cantidad dañada</label>
+        <input type="number" id="sc-extra-danado" min="0" inputmode="numeric" placeholder="0" value="0" style="font-size:18px;font-weight:600;text-align:center;padding:10px">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="mbtn mbtn-cancel" onclick="closeExtraModal()">Cancelar</button>
+      <button class="mbtn mbtn-ok" onclick="submitExtraCount()"><i class="ti ti-plus"></i> Registrar sobrante</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL PRODUCTO -->
 <div id="modal-overlay" class="modal-overlay" onclick="closeMod(event)">
   <div class="modal" onclick="event.stopPropagation()">
@@ -712,7 +775,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const K_SESSION='wms_session',K_COUNTS='wms_counts',K_CONFIG='wms_config';
 const K_SESSION_SC='wms_session_scanner';
 const MODO=new URLSearchParams(location.search).get('modulo')==='escaner'?'escaner':'main';
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbzyIeOSwSvY7Occabb841mIlEHhPhSIpF07BQ-TFRZBC9o_678tGngbHHeequlPmkxzRQ/exec';
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycby-aoA5ZaD3AMPsGTugscM2-g8Tydvpn5B7mnFfuwW9XXJr2LDgaxQS9AH0uMyrpx-CmQ/exec';
 let session=null,storeData={},counts={},curProd=null,closedStores={},activeFilter='all',syncInterval=null,lastSync=null;
 let scSession=null,scTiendaMap={},scPrecarga=[],scConteos={},scOrdenCerrada=false,scCurrentTR=null,scCurrentTienda=null,scFilter='all',scSyncInterval=null;
 function goToScannerModule(){showScreen('scr-login-scanner');}
@@ -1709,6 +1772,9 @@ function renderScanList(){
   document.getElementById('sc-progress-pct').textContent=pct+'%';
   document.getElementById('sc-progress-bar').style.width=pct+'%';
   if(!scOrdenCerrada){btnCerrar.style.display='block';btnCerrar.disabled=pendientes>0;btnCerrar.style.opacity=pendientes>0?'.5':'1';btnCerrar.innerHTML=pendientes>0?`<i class="ti ti-lock"></i> Cerrar orden (${pendientes} pendiente${pendientes===1?'':'s'})`:`<i class="ti ti-lock"></i> Cerrar orden`;}
+  const btnExtra=document.getElementById('sc-btn-extra');
+  if(btnExtra)btnExtra.style.display=scOrdenCerrada?'none':'';
+  renderExtraList();
 }
 
 let scEditingEAN=null;
@@ -1788,7 +1854,7 @@ async function doSaveScanCount(cantidad,danado,confirmado){
     const r=await fetch(getUrl(),{method:'POST',body:params});
     const d=await r.json();
     if(d.ok){
-      scConteos[scEditingEAN]={ean:scEditingEAN,cantidad_fisica:cantidad,cantidad_danada:danado,cantidad_precargada:d.cantidad_precargada,coincide:d.coincide,usuario:scSession.name,ts:new Date().toISOString()};
+      scConteos[scEditingEAN]={ean:scEditingEAN,cantidad_fisica:cantidad,cantidad_danada:danado,cantidad_precargada:d.cantidad_precargada,coincide:d.coincide,precargado:true,usuario:scSession.name,ts:new Date().toISOString()};
       renderScanList();
       toast(d.coincide?'Guardado ✓':'Guardado con diferencia ⚠️');
     }else toast('Error: '+d.error);
@@ -1809,7 +1875,9 @@ async function closeOrdenClient(){
 }
 
 // --- Reportes: exactitud, SKUs con diferencia, tiempos de cierre y progreso diario (visible para contador y auditor) ---
-let repData=[];
+let repData=[];      // resumen sin filtro de día (todo el histórico), cache para el filtro de tienda
+let repDataDia=null;  // resumen del día seleccionado en el filtro (se refresca cuando cambia el día)
+let repDiaCache='';   // qué día quedó cacheado en repDataDia
 async function loadReportes(){
   const area=document.getElementById('rep-area');
   area.innerHTML='<div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div>';
@@ -1823,12 +1891,40 @@ async function loadReportes(){
     const tiendas=[...new Set(repData.map(o=>o.tienda))].sort();
     sel.innerHTML='<option value="">Todas las tiendas</option>'+tiendas.map(t=>`<option value="${t}">${t}</option>`).join('');
     if(prev&&tiendas.includes(prev))sel.value=prev;
+    await ensureDiaData();
     renderReportes();
   }catch{area.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>Sin conexión</div>';}
   loadProgresoDiario();
   loadCategorias();
+  loadComparativaTiendas();
+  loadMapaCalor();
 }
-function onRepFilterChange(){renderReportes();loadProgresoDiario();loadCategorias();}
+// El filtro de "Día" mira el timestamp real de cada conteo (no la fecha de carga de la precarga),
+// así que requiere su propia consulta al backend — no se puede derivar del resumen general en el cliente.
+async function ensureDiaData(){
+  const dia=document.getElementById('rep-sel-dia').value;
+  document.getElementById('rep-btn-clear-dia').style.display=dia?'':'none';
+  if(!dia)return;
+  if(repDiaCache===dia&&repDataDia)return;
+  try{
+    const r=await fetch(getUrl()+'?action=getEscanerResumen&dia='+encodeURIComponent(dia));
+    const d=await r.json();
+    if(d.ok){repDataDia=d.data||[];repDiaCache=dia;}
+  }catch{}
+}
+function limpiarFiltroDia(){
+  document.getElementById('rep-sel-dia').value='';
+  onRepFilterChange();
+}
+// El filtro de "Día" solo afecta Resumen/Detalle/Categorías/Comparativa (actividad de ese día
+// puntual); las gráficas históricas y el mapa de calor siguen mostrando la tendencia completa.
+async function onRepFilterChange(){
+  await ensureDiaData();
+  renderReportes();
+  loadProgresoDiario();
+  loadCategorias();
+  loadComparativaTiendas();
+}
 function fmtMin(min){
   if(min===null||min===undefined)return '—';
   if(min<60)return `${min} min`;
@@ -1839,12 +1935,17 @@ function fmtFecha(iso){
   if(!iso)return '—';
   return new Date(iso).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
 }
+function getReportesSource(){
+  const dia=document.getElementById('rep-sel-dia').value;
+  return dia?(repDataDia||[]):repData;
+}
 function renderReportes(){
   const tienda=document.getElementById('rep-sel-store').value;
+  const source=getReportesSource();
   const area=document.getElementById('rep-area');
   const statsBox=document.getElementById('rep-stats');
-  let fil=(tienda?repData.filter(o=>o.tienda===tienda):repData.slice()).filter(o=>o.contados>0).sort((a,b)=>a.tienda.localeCompare(b.tienda)||a.tr.localeCompare(b.tr));
-  if(!fil.length){area.innerHTML='<div class="empty-state"><i class="ti ti-clipboard-off"></i>Sin órdenes con conteos registrados</div>';statsBox.innerHTML='';return;}
+  let fil=(tienda?source.filter(o=>o.tienda===tienda):source.slice()).filter(o=>o.contados>0).sort((a,b)=>a.tienda.localeCompare(b.tienda)||a.tr.localeCompare(b.tr));
+  if(!fil.length){area.innerHTML='<div class="empty-state"><i class="ti ti-clipboard-off"></i>Sin órdenes con conteos registrados'+(document.getElementById('rep-sel-dia').value?' ese día':'')+'</div>';statsBox.innerHTML='';return;}
   const cerradas=fil.filter(o=>o.cerrada);
   // Dos lecturas de exactitud: una solo sobre lo que ya se cerró (avance "terminado"),
   // y otra sobre todo lo contado hasta ahora, esté cerrado o no (avance "en vivo").
@@ -1856,31 +1957,35 @@ function renderReportes(){
   const sobrantes=fil.reduce((s,o)=>s+(o.sobrantes||0),0);
   const faltantes=fil.reduce((s,o)=>s+(o.faltantes||0),0);
   const ordenesConDif=fil.filter(o=>o.diferencias>0).length;
-  statsBox.innerHTML=`<div class="stat"><div class="stat-n">${fil.length}</div><div class="stat-l">Órdenes</div></div><div class="stat"><div class="stat-n" style="color:var(--green)">${cerradas.length}</div><div class="stat-l">Cerradas</div></div><div class="stat"><div class="stat-n">${pctPromCerradas===null?'—':pctPromCerradas+'%'}</div><div class="stat-l">Exactitud (cerradas)</div></div><div class="stat"><div class="stat-n">${pctPromContado===null?'—':pctPromContado+'%'}</div><div class="stat-l">Exactitud (contado)</div></div><div class="stat"><div class="stat-n" style="color:var(--amber)">${skusDif}</div><div class="stat-l">SKUs con diferencia</div></div><div class="stat"><div class="stat-n" style="color:var(--amber)">${ordenesConDif}</div><div class="stat-l">Órdenes con diferencia</div></div><div class="stat"><div class="stat-n" style="color:var(--blue)">${sobrantes}</div><div class="stat-l">Sobrantes</div></div><div class="stat"><div class="stat-n" style="color:var(--red)">${faltantes}</div><div class="stat-l">Faltantes</div></div><div class="stat"><div class="stat-n">${durProm===null?'—':fmtMin(durProm)}</div><div class="stat-l">Cierre prom.</div></div>`;
-  let html='<div style="overflow-x:auto"><table class="users-table"><thead><tr><th>Tienda</th><th>TR</th><th>Estado</th><th>Avance</th><th>% Exactitud</th><th>SKUs c/ diferencia</th><th>Sobrantes</th><th>Faltantes</th><th>Cerrada el</th><th>Tiempo de cierre</th></tr></thead><tbody>';
+  const extras=fil.reduce((s,o)=>s+(o.extras||0),0);
+  statsBox.innerHTML=`<div class="stat"><div class="stat-n">${fil.length}</div><div class="stat-l">Órdenes</div></div><div class="stat"><div class="stat-n" style="color:var(--green)">${cerradas.length}</div><div class="stat-l">Cerradas</div></div><div class="stat"><div class="stat-n">${pctPromCerradas===null?'—':pctPromCerradas+'%'}</div><div class="stat-l">Exactitud (cerradas)</div></div><div class="stat"><div class="stat-n">${pctPromContado===null?'—':pctPromContado+'%'}</div><div class="stat-l">Exactitud (contado)</div></div><div class="stat"><div class="stat-n" style="color:var(--amber)">${skusDif}</div><div class="stat-l">SKUs con diferencia</div></div><div class="stat"><div class="stat-n" style="color:var(--amber)">${ordenesConDif}</div><div class="stat-l">Órdenes con diferencia</div></div><div class="stat"><div class="stat-n" style="color:var(--blue)">${sobrantes}</div><div class="stat-l">Sobrantes</div></div><div class="stat"><div class="stat-n" style="color:var(--red)">${faltantes}</div><div class="stat-l">Faltantes</div></div><div class="stat"><div class="stat-n" style="color:var(--text2)">${extras}</div><div class="stat-l">No precargados</div></div><div class="stat"><div class="stat-n">${durProm===null?'—':fmtMin(durProm)}</div><div class="stat-l">Cierre prom.</div></div>`;
+  let html='<div style="overflow-x:auto"><table class="users-table"><thead><tr><th>Tienda</th><th>TR</th><th>Estado</th><th>Avance</th><th>% Exactitud</th><th>SKUs c/ diferencia</th><th>Sobrantes</th><th>Faltantes</th><th>No precargados</th><th>Cerrada el</th><th>Tiempo de cierre</th></tr></thead><tbody>';
   fil.forEach(o=>{
     const estado=o.cerrada?`<span class="pill pill-exec">Cerrada</span>`:(o.vencida?`<span class="pill pill-vencida">Vencida</span>`:`<span class="pill pill-pend">Abierta</span>`);
     const pct=o.pctExactitud===null?'—':`${o.pctExactitud}%`;
     const dif=o.diferencias>0?`<span style="color:var(--amber);font-weight:600">${o.diferencias}</span>`:'—';
     const sob=o.sobrantes>0?`<span style="color:var(--blue);font-weight:600">${o.sobrantes}</span>`:'—';
     const falt=o.faltantes>0?`<span style="color:var(--red);font-weight:600">${o.faltantes}</span>`:'—';
-    html+=`<tr><td>${o.tienda}</td><td><strong>${o.sapId||o.tr}</strong></td><td>${estado}</td><td>${o.contados}/${o.total}</td><td>${pct}</td><td>${dif}</td><td>${sob}</td><td>${falt}</td><td>${fmtFecha(o.fechaCierre)}</td><td>${fmtMin(o.duracionMin)}</td></tr>`;
+    const ext=o.extras>0?`<span style="color:var(--text2);font-weight:600">${o.extras}</span>`:'—';
+    html+=`<tr><td>${o.tienda}</td><td><strong>${o.sapId||o.tr}</strong></td><td>${estado}</td><td>${o.contados}/${o.total}</td><td>${pct}</td><td>${dif}</td><td>${sob}</td><td>${falt}</td><td>${ext}</td><td>${fmtFecha(o.fechaCierre)}</td><td>${fmtMin(o.duracionMin)}</td></tr>`;
   });
   html+='</tbody></table></div>';
   area.innerHTML=html;
 }
 function descargarReportesCSV(){
   const tienda=document.getElementById('rep-sel-store').value;
-  const fil=(tienda?repData.filter(o=>o.tienda===tienda):repData.slice()).filter(o=>o.contados>0).sort((a,b)=>a.tienda.localeCompare(b.tienda)||a.tr.localeCompare(b.tr));
+  const dia=document.getElementById('rep-sel-dia').value;
+  const source=getReportesSource();
+  const fil=(tienda?source.filter(o=>o.tienda===tienda):source.slice()).filter(o=>o.contados>0).sort((a,b)=>a.tienda.localeCompare(b.tienda)||a.tr.localeCompare(b.tr));
   if(!fil.length){toast('No hay datos para descargar');return;}
-  const headers=['Tienda','TR','SAP ID','Estado','Contados','Total','% Exactitud','SKUs con diferencia','Sobrantes','Faltantes','Cerrada el','Cerrado por','Tiempo de cierre (min)'];
+  const headers=['Tienda','TR','SAP ID','Estado','Contados','Total','% Exactitud','SKUs con diferencia','Sobrantes','Faltantes','No precargados','Cerrada el','Cerrado por','Tiempo de cierre (min)'];
   const csvEsc=v=>{const s=String(v===null||v===undefined?'':v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
-  const rows=fil.map(o=>[o.tienda,o.tr,o.sapId||'',o.cerrada?'Cerrada':(o.vencida?'Vencida':'Abierta'),o.contados,o.total,o.pctExactitud===null?'':o.pctExactitud,o.diferencias,o.sobrantes||0,o.faltantes||0,o.fechaCierre?new Date(o.fechaCierre).toLocaleString('es-MX'):'',o.cerradoPor||'',o.duracionMin===null||o.duracionMin===undefined?'':o.duracionMin]);
+  const rows=fil.map(o=>[o.tienda,o.tr,o.sapId||'',o.cerrada?'Cerrada':(o.vencida?'Vencida':'Abierta'),o.contados,o.total,o.pctExactitud===null?'':o.pctExactitud,o.diferencias,o.sobrantes||0,o.faltantes||0,o.extras||0,o.fechaCierre?new Date(o.fechaCierre).toLocaleString('es-MX'):'',o.cerradoPor||'',o.duracionMin===null||o.duracionMin===undefined?'':o.duracionMin]);
   const csv='\uFEFF'+[headers,...rows].map(r=>r.map(csvEsc).join(',')).join('\r\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  const fecha=new Date().toISOString().slice(0,10);
+  const fecha=dia||new Date().toISOString().slice(0,10);
   a.href=url;a.download=`reporte_auditoria_${fecha}.csv`;
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   URL.revokeObjectURL(url);
@@ -1901,10 +2006,14 @@ async function loadProgresoDiario(){
     renderAccChart(d.data||[]);
   }catch{const msg='<div class="empty-state"><i class="ti ti-alert-circle"></i>Sin conexión</div>';chartArea.innerHTML=msg;accArea.innerHTML=msg;}
 }
+// Debajo de este total de conteos en el día, la barra se dibuja más tenue: al normalizar la
+// altura a 100% (composición, no volumen) un solo producto mal contado en un día muy chico se ve
+// tan "grave" como 50 mal contados en un día grande — la opacidad avisa que ahí hay poca muestra
+// y el % conviene tomarlo con cautela, sin volver a hacer que la barra se vea más chica.
+const MUESTRA_BAJA_UMBRAL = 10;
 function renderProgresoChart(data){
   const chartArea=document.getElementById('rep-chart-area');
   if(!data.length){chartArea.innerHTML='<div class="empty-state"><i class="ti ti-chart-bar"></i>Aún no hay conteos registrados</div>';return;}
-  const maxVal=Math.max(1,...data.map(d=>d.total));
   const padL=32,padR=14,padT=22,padB=34;
   const step=Math.max(44,Math.min(64,600/data.length));
   const plotW=step*data.length;
@@ -1913,23 +2022,26 @@ function renderProgresoChart(data){
   const bw=Math.min(30,step*0.55);
   const baseY=padT+plotH;
   let bars='';
+  let hayMuestraBaja=false;
   data.forEach((dpt,i)=>{
     const x=padL+step*i+(step-bw)/2;
-    const totalH=Math.round(plotH*(dpt.total/maxVal));
-    const difH=dpt.diferencias>0?Math.max(3,Math.round(plotH*(dpt.diferencias/maxVal))):0;
-    const okH=Math.max(dpt.total>0?1:0,totalH-difH-(difH>0?1:0));
+    // Todas las barras a la misma altura (100% = composición del día), no al volumen —
+    // así un día con pocos conteos no se ve "chico" frente a uno con más; el total sigue
+    // visible en la etiqueta de arriba, solo dejó de ser lo que define la altura.
+    const difH=dpt.diferencias>0?Math.max(3,Math.round(plotH*(dpt.diferencias/dpt.total))):0;
+    const okH=plotH-difH;
     const okTopY=baseY-okH;
-    const difTopY=okTopY-1-difH;
+    const difTopY=baseY-plotH;
     const partes=dpt.dia.split('-');
     const fechaLbl=`${partes[2]}/${partes[1]}`;
-    bars+=`<g>`;
-    bars+=`<title>${dpt.dia}: ${dpt.total} contados, ${dpt.diferencias} con diferencia</title>`;
-    if(okH>0)bars+=`<rect x="${x}" y="${okTopY}" width="${bw}" height="${okH}" rx="2" fill="var(--green)"/>`;
-    if(difH>0)bars+=`<rect x="${x}" y="${difTopY}" width="${bw}" height="${difH}" rx="2" fill="var(--amber)"/>`;
-    if(dpt.total>0){
-      const labelTotal=dpt.diferencias>0?`${dpt.total} <tspan fill="var(--amber)" font-weight="600">(${dpt.diferencias})</tspan>`:`${dpt.total}`;
-      bars+=`<text x="${x+bw/2}" y="${difTopY-6}" text-anchor="middle" font-size="10.5" fill="var(--text2)">${labelTotal}</text>`;
-    }
+    const labelTotal=dpt.diferencias>0?`${dpt.total} <tspan fill="var(--amber)" font-weight="600">(${dpt.diferencias})</tspan>`:`${dpt.total}`;
+    const muestraBaja=dpt.total<MUESTRA_BAJA_UMBRAL;
+    if(muestraBaja)hayMuestraBaja=true;
+    bars+=`<g${muestraBaja?' opacity="0.45"':''}>`;
+    bars+=`<title>${dpt.dia}: ${dpt.total} contados, ${dpt.diferencias} con diferencia${muestraBaja?' — muestra baja, tomar el % con cautela':''}</title>`;
+    if(okH>0)bars+=`<rect x="${x}" y="${okTopY}" width="${bw}" height="${okH}" rx="2" fill="var(--green)"${muestraBaja?' stroke="var(--text3)" stroke-dasharray="2,2"':''}/>`;
+    if(difH>0)bars+=`<rect x="${x}" y="${difTopY}" width="${bw}" height="${difH}" rx="2" fill="var(--amber)"${muestraBaja?' stroke="var(--text3)" stroke-dasharray="2,2"':''}/>`;
+    bars+=`<text x="${x+bw/2}" y="${difTopY-6}" text-anchor="middle" font-size="10.5" fill="var(--text2)">${labelTotal}</text>`;
     bars+=`<text x="${x+bw/2}" y="${baseY+16}" text-anchor="middle" font-size="10" fill="var(--text3)">${fechaLbl}</text>`;
     bars+=`</g>`;
   });
@@ -1937,7 +2049,8 @@ function renderProgresoChart(data){
     <line x1="${padL}" y1="${baseY}" x2="${padL+plotW}" y2="${baseY}" stroke="var(--border)" stroke-width="1"/>
     ${bars}
   </svg>`;
-  chartArea.innerHTML=svg+`<div class="chart-legend"><span class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--green)"></span>Coincide</span><span class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--amber)"></span>Con diferencia</span></div>`;
+  const legendBaja=hayMuestraBaja?`<span class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--text3);opacity:.45"></span>Muestra baja (&lt;${MUESTRA_BAJA_UMBRAL} contados)</span>`:'';
+  chartArea.innerHTML=svg+`<div class="chart-legend"><span class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--green)"></span>Coincide</span><span class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--amber)"></span>Con diferencia</span>${legendBaja}</div>`;
 }
 
 // Gráfica de línea: % de exactitud por día (derivada de los mismos datos de progreso diario, sin llamada extra al backend)
@@ -1989,8 +2102,9 @@ async function loadCategorias(){
   chartArea.innerHTML='<div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div>';
   tblArea.innerHTML='';
   const tienda=document.getElementById('rep-sel-store').value;
+  const dia=document.getElementById('rep-sel-dia').value;
   try{
-    const r=await fetch(getUrl()+'?action=getReporteCategorias'+(tienda?'&tienda='+encodeURIComponent(tienda):''));
+    const r=await fetch(getUrl()+'?action=getReporteCategorias'+(tienda?'&tienda='+encodeURIComponent(tienda):'')+(dia?'&dia='+encodeURIComponent(dia):''));
     const d=await r.json();
     if(!d.ok){chartArea.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>'+(d.error||'Error al cargar')+'</div>';return;}
     repCatData=d.data||[];
@@ -2043,6 +2157,147 @@ function descargarCategoriasCSV(){
   a.href=url;a.download=`reporte_categorias_${fecha}.csv`;
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// --- Comparativa por tienda: misma actividad de getEscanerResumen pero agrupada por tienda,
+// para comparar tiendas entre sí en vez de TRs individuales. Respeta el filtro de Día (no el
+// de Tienda, que no aplicaría — el objetivo es ver todas las tiendas a la vez). ---
+let repTiendasData=[];
+async function loadComparativaTiendas(){
+  const chartArea=document.getElementById('rep-tiendas-chart-area');
+  const tblArea=document.getElementById('rep-tiendas-area');
+  chartArea.innerHTML='<div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div>';
+  tblArea.innerHTML='';
+  const dia=document.getElementById('rep-sel-dia').value;
+  try{
+    const r=await fetch(getUrl()+'?action=getComparativaTiendas'+(dia?'&dia='+encodeURIComponent(dia):''));
+    const d=await r.json();
+    if(!d.ok){chartArea.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>'+(d.error||'Error al cargar')+'</div>';return;}
+    repTiendasData=d.data||[];
+    renderComparativaChart(repTiendasData);
+    renderComparativaTable(repTiendasData);
+  }catch{chartArea.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>Sin conexión</div>';}
+}
+function renderComparativaChart(data){
+  const area=document.getElementById('rep-tiendas-chart-area');
+  if(!data.length){area.innerHTML='<div class="empty-state"><i class="ti ti-building-store"></i>Sin actividad registrada'+(document.getElementById('rep-sel-dia').value?' ese día':'')+'</div>';return;}
+  const rows=data.slice().sort((a,b)=>(a.pctExactitud===null?100:a.pctExactitud)-(b.pctExactitud===null?100:b.pctExactitud));
+  const labelW=140,plotW=380,padR=46,padT=8,padB=8,rowH=28;
+  const w=labelW+plotW+padR, h=padT+rows.length*rowH+padB;
+  let bars='';
+  rows.forEach((d,i)=>{
+    const y=padT+i*rowH;
+    const pct=d.pctExactitud===null?0:d.pctExactitud;
+    const okW=Math.round(plotW*(pct/100));
+    const difW=plotW-okW;
+    const label=d.tienda.length>18?d.tienda.slice(0,17)+'…':d.tienda;
+    bars+=`<g><title>${d.tienda}: ${d.pctExactitud===null?'—':d.pctExactitud+'%'} exactitud, ${d.contados} contados</title>`;
+    bars+=`<text x="${labelW-8}" y="${y+rowH/2+4}" text-anchor="end" font-size="12" fill="var(--text)">${label}</text>`;
+    if(okW>0)bars+=`<rect x="${labelW}" y="${y+5}" width="${okW}" height="${rowH-10}" rx="3" fill="var(--green)"/>`;
+    if(difW>0)bars+=`<rect x="${labelW+okW}" y="${y+5}" width="${difW}" height="${rowH-10}" rx="3" fill="var(--amber)"/>`;
+    bars+=`<text x="${labelW+plotW+8}" y="${y+rowH/2+4}" font-size="12" fill="var(--text2)">${d.pctExactitud===null?'—':d.pctExactitud+'%'}</text>`;
+    bars+=`</g>`;
+  });
+  area.innerHTML=`<svg viewBox="0 0 ${w} ${h}" style="display:block;width:${w}px" role="img" aria-label="Porcentaje de exactitud por tienda">${bars}</svg>`;
+}
+function renderComparativaTable(data){
+  const area=document.getElementById('rep-tiendas-area');
+  if(!data.length){area.innerHTML='';return;}
+  const rows=data.slice().sort((a,b)=>a.tienda.localeCompare(b.tienda));
+  let html='<div style="overflow-x:auto"><table class="users-table"><thead><tr><th>Tienda</th><th>TRs</th><th>Cerrados</th><th>Contados</th><th>% Exactitud</th><th>SKUs c/ diferencia</th><th>Sobrantes</th><th>Faltantes</th><th>No precargados</th><th>Cierre prom.</th></tr></thead><tbody>';
+  rows.forEach(d=>{
+    const pct=d.pctExactitud===null?'—':`${d.pctExactitud}%`;
+    const dif=d.diferencias>0?`<span style="color:var(--amber);font-weight:600">${d.diferencias}</span>`:'—';
+    const sob=d.sobrantes>0?`<span style="color:var(--blue);font-weight:600">${d.sobrantes}</span>`:'—';
+    const falt=d.faltantes>0?`<span style="color:var(--red);font-weight:600">${d.faltantes}</span>`:'—';
+    const ext=d.extras>0?`<span style="color:var(--text2);font-weight:600">${d.extras}</span>`:'—';
+    html+=`<tr><td>${d.tienda}</td><td>${d.trs}</td><td>${d.trsCerrados}</td><td>${d.contados}</td><td>${pct}</td><td>${dif}</td><td>${sob}</td><td>${falt}</td><td>${ext}</td><td>${fmtMin(d.duracionMinProm)}</td></tr>`;
+  });
+  html+='</tbody></table></div>';
+  area.innerHTML=html;
+}
+function descargarComparativaCSV(){
+  if(!repTiendasData.length){toast('No hay datos para descargar');return;}
+  const headers=['Tienda','TRs','TRs cerrados','Contados','% Exactitud','SKUs con diferencia','Sobrantes','Faltantes','No precargados','Tiempo de cierre prom. (min)'];
+  const csvEsc=v=>{const s=String(v===null||v===undefined?'':v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  const rows=repTiendasData.slice().sort((a,b)=>a.tienda.localeCompare(b.tienda)).map(d=>[d.tienda,d.trs,d.trsCerrados,d.contados,d.pctExactitud===null?'':d.pctExactitud,d.diferencias,d.sobrantes,d.faltantes,d.extras,d.duracionMinProm===null||d.duracionMinProm===undefined?'':d.duracionMinProm]);
+  const csv='\uFEFF'+[headers,...rows].map(r=>r.map(csvEsc).join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const fecha=new Date().toISOString().slice(0,10);
+  a.href=url;a.download=`comparativa_tiendas_${fecha}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// --- Mapa de calor tienda × día: muestra siempre el histórico completo (no respeta los
+// filtros de Tienda/Día de arriba, que no tendrían mucho sentido aquí) — un toggle cliente
+// cambia si el color representa actividad (contados) o problemas (diferencias), sin refetch. ---
+let mapaCalorData=[];
+let mapaCalorModo='actividad';
+async function loadMapaCalor(){
+  const area=document.getElementById('rep-heatmap-area');
+  area.innerHTML='<div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div>';
+  try{
+    const r=await fetch(getUrl()+'?action=getMapaCalor');
+    const d=await r.json();
+    if(!d.ok){area.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>'+(d.error||'Error al cargar')+'</div>';return;}
+    mapaCalorData=d.data||[];
+    renderMapaCalor();
+  }catch{area.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>Sin conexión</div>';}
+}
+function setMapaCalorModo(modo){
+  mapaCalorModo=modo;
+  document.getElementById('hm-tab-actividad').classList.toggle('active',modo==='actividad');
+  document.getElementById('hm-tab-problemas').classList.toggle('active',modo==='problemas');
+  renderMapaCalor();
+}
+function renderMapaCalor(){
+  const area=document.getElementById('rep-heatmap-area');
+  if(!mapaCalorData.length){area.innerHTML='<div class="empty-state"><i class="ti ti-grid-dots"></i>Aún no hay conteos registrados</div>';return;}
+  const tiendas=[...new Set(mapaCalorData.map(c=>c.tienda))].sort();
+  const diasTodos=[...new Set(mapaCalorData.map(c=>c.dia))].sort();
+  const MAX_DIAS=30; // se recorta a los últimos N días con actividad para que el ancho no se dispare
+  const dias=diasTodos.slice(-MAX_DIAS);
+  const porCelda={};
+  mapaCalorData.forEach(c=>{porCelda[c.tienda+'|'+c.dia]=c;});
+  const labelW=110,cellW=24,cellH=22,padT=6,padB=30,padR=6;
+  const w=labelW+dias.length*cellW+padR, h=padT+tiendas.length*cellH+padB;
+  const metric=mapaCalorModo==='actividad'?'contados':'diferencias';
+  const maxVal=Math.max(1,...dias.flatMap(dia=>tiendas.map(t=>(porCelda[t+'|'+dia]||{})[metric]||0)));
+  const colorFn=v=>{
+    if(!v)return 'var(--bg2)';
+    const t=Math.min(1,v/maxVal);
+    return mapaCalorModo==='actividad'?`rgba(53,211,153,${0.18+0.72*t})`:`rgba(239,75,36,${0.18+0.72*t})`;
+  };
+  let cells='';
+  tiendas.forEach((t,ti)=>{
+    const y=padT+ti*cellH;
+    const label=t.length>16?t.slice(0,15)+'…':t;
+    cells+=`<text x="${labelW-8}" y="${y+cellH/2+4}" text-anchor="end" font-size="11" fill="var(--text)">${label}</text>`;
+    dias.forEach((dia,di)=>{
+      const x=labelW+di*cellW;
+      const c=porCelda[t+'|'+dia];
+      const val=c?c[metric]:0;
+      const tip=c?`${t} · ${dia}: ${c.contados} contados, ${c.diferencias} con diferencia`:`${t} · ${dia}: sin actividad`;
+      cells+=`<g><title>${tip}</title><rect x="${x+1}" y="${y+1}" width="${cellW-2}" height="${cellH-2}" rx="2" fill="${colorFn(val)}"/></g>`;
+    });
+  });
+  let diaLabels='';
+  const step=dias.length>18?3:dias.length>10?2:1;
+  dias.forEach((dia,di)=>{
+    if(di%step!==0&&di!==dias.length-1)return;
+    const partes=dia.split('-');
+    const x=labelW+di*cellW+cellW/2;
+    diaLabels+=`<text x="${x}" y="${padT+tiendas.length*cellH+16}" text-anchor="middle" font-size="9" fill="var(--text3)">${partes[2]}/${partes[1]}</text>`;
+  });
+  const svg=`<svg viewBox="0 0 ${w} ${h}" style="display:block;width:${w}px" role="img" aria-label="Mapa de calor de actividad por tienda y día">
+    ${cells}
+    ${diaLabels}
+  </svg>`;
+  const nota=diasTodos.length>MAX_DIAS?`<div class="chart-card-sub" style="margin-top:6px">Mostrando los últimos ${MAX_DIAS} días con actividad, de ${diasTodos.length} en total</div>`:'';
+  area.innerHTML=svg+nota;
 }
 
 // --- Cámara / escaneo de código de barras ---
@@ -2104,8 +2359,62 @@ function onScanDecoded(decodedText){
   const ean=String(decodedText).trim();
   closeScannerModal();
   const p=scPrecarga.find(x=>x.ean===ean);
-  if(!p){toast(`EAN ${ean} no pertenece a este TR`);return;}
+  // Si el EAN no está en la precarga de este TR, ya no se pierde el hallazgo: se ofrece
+  // registrarlo directo como producto sobrante no precargado.
+  if(!p){abrirModalExtra(ean);return;}
   openCountModal(ean);
+}
+
+// --- Producto sobrante no precargado: se encontró físicamente pero no estaba en la lista del TR ---
+function abrirModalExtra(eanPrefill){
+  if(scOrdenCerrada){toast('Esta orden ya está cerrada.');return;}
+  // Si ya existe un sobrante registrado con ese EAN, se reabre para editarlo en vez de duplicarlo.
+  const existente=eanPrefill&&scConteos[eanPrefill]&&scConteos[eanPrefill].precargado===false?scConteos[eanPrefill]:null;
+  document.getElementById('sc-extra-ean').value=eanPrefill||'';
+  document.getElementById('sc-extra-nombre').value=existente?(existente.nombre||''):'';
+  document.getElementById('sc-extra-input').value=existente?existente.cantidad_fisica:'';
+  document.getElementById('sc-extra-danado').value=existente?(existente.cantidad_danada||0):0;
+  document.getElementById('modal-extra-overlay').classList.add('open');
+  setTimeout(()=>{
+    const el=eanPrefill?document.getElementById('sc-extra-input'):document.getElementById('sc-extra-ean');
+    el.focus();
+  },100);
+}
+function closeExtraModal(e){if(e&&e.target!==document.getElementById('modal-extra-overlay'))return;document.getElementById('modal-extra-overlay').classList.remove('open');}
+async function submitExtraCount(){
+  const ean=(document.getElementById('sc-extra-ean').value||'').trim();
+  const nombre=(document.getElementById('sc-extra-nombre').value||'').trim();
+  const val=document.getElementById('sc-extra-input').value;
+  const valDan=document.getElementById('sc-extra-danado').value;
+  if(!ean){toast('Ingresa el EAN del producto');return;}
+  if(scPrecarga.some(x=>x.ean===ean)){toast('Este EAN sí está en la precarga — regístralo desde la lista normal');return;}
+  const cantidad=Number(val)||0,danado=Number(valDan)||0;
+  if(cantidad<0||danado<0){toast('Las cantidades no pueden ser negativas');return;}
+  if(cantidad+danado<=0){toast('Ingresa una cantidad mayor a 0');return;}
+  closeExtraModal();toast('Guardando...');
+  try{
+    const params=new URLSearchParams({action:'saveScanCountExtra',tr:scCurrentTR,tienda:scCurrentTienda,ean,nombre,cantidad_fisica:cantidad,cantidad_danada:danado,usuario:scSession.name});
+    const r=await fetch(getUrl(),{method:'POST',body:params});
+    const d=await r.json();
+    if(d.ok){
+      scConteos[ean]={ean,nombre:d.nombre,cantidad_fisica:cantidad,cantidad_danada:danado,cantidad_precargada:0,coincide:false,diferencia:d.diferencia,precargado:false,usuario:scSession.name,ts:new Date().toISOString()};
+      renderExtraList();
+      toast('Sobrante registrado ✓');
+    }else toast('Error: '+d.error);
+  }catch{toast('Sin conexión, intenta de nuevo');}
+}
+function renderExtraList(){
+  const area=document.getElementById('sc-extra-area');
+  if(!area)return;
+  const extras=Object.values(scConteos).filter(c=>c.precargado===false);
+  if(!extras.length){area.innerHTML='<div style="font-size:12px;color:var(--text3)">Ninguno registrado — usa "Agregar" si encuentras un producto que no está en la lista.</div>';return;}
+  let html='<div class="prod-list">';
+  extras.forEach(c=>{
+    const danadoTxt=c.cantidad_danada>0?` (+${c.cantidad_danada} dañado)`:'';
+    html+=`<div class="prod-row counted-other" onclick="${scOrdenCerrada?'':`abrirModalExtra('${c.ean}')`}" role="button" tabindex="0"><div class="prod-ph"><i class="ti ti-package"></i></div><div class="prod-info"><div class="prod-name">${c.nombre||'(sin nombre)'}</div><div class="prod-ean">${c.ean}</div></div><span class="tag-ok-other"><i class="ti ti-corner-down-right"></i> ${c.cantidad_fisica}${danadoTxt}</span></div>`;
+  });
+  html+='</div>';
+  area.innerHTML=html;
 }
 
 // --- Resumen de escáner en Admin ---
