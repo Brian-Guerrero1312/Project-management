@@ -560,7 +560,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <button class="btn-ghost" onclick="descargarReportesCSV()"><i class="ti ti-download"></i> Descargar CSV</button>
       </div>
       <div class="rep-section-head"><span class="rep-badge">1</span><span class="rep-section-title">Resumen</span></div>
-      <div class="chart-card-sub" style="margin-bottom:8px">"Exactitud (cerradas)" solo considera órdenes ya cerradas; "Exactitud (contado)" incluye todo lo contado hasta ahora, esté cerrado o no. Sobrantes = se contó de más; faltantes = se contó de menos; "No precargados" son sobrantes que ni siquiera estaban en la lista (ya incluidos en Sobrantes, aquí aparte solo para verlos). El filtro de Día aplica aquí, en "Impacto por categoría" y en "Comparativa por tienda" (según cuándo se contó cada producto), no en las gráficas de Históricos ni en el Mapa de calor</div>
+      <div class="chart-card-sub" style="margin-bottom:8px">"Exactitud (cerradas)" solo considera órdenes ya cerradas; "Exactitud (contado)" incluye todo lo contado hasta ahora, esté cerrado o no. Sobrantes = se contó de más; faltantes = se contó de menos; "No precargados" son sobrantes que ni siquiera estaban en la lista (ya incluidos en Sobrantes, aquí aparte solo para verlos). El filtro de Día aplica aquí, en "Impacto por categoría" y en "Comparativa por tienda" (según cuándo se contó cada producto), no en las gráficas de Históricos</div>
       <div id="rep-stats" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:22px"></div>
 
       <div class="rep-section-head"><span class="rep-badge">2</span><span class="rep-section-title">Históricos</span></div>
@@ -576,11 +576,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <div id="rep-acc-chart-area" class="chart-wrap"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
         </div>
       </div>
-      <div class="chart-card-title">Detalle de órdenes por TR</div>
-      <div id="rep-area"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
 
       <div class="rep-section-head" style="justify-content:space-between;margin-top:22px">
-        <div style="display:flex;align-items:center;gap:8px"><span class="rep-badge">3</span><span class="rep-section-title">Impacto por categoría</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span class="rep-badge">3</span><span class="rep-section-title">Comparativa por tienda</span></div>
+        <button class="btn-ghost" onclick="descargarComparativaCSV()"><i class="ti ti-download"></i> Descargar CSV</button>
+      </div>
+      <div class="chart-card-title">% Exactitud por tienda</div>
+      <div class="chart-card-sub">Tiendas ordenadas de menor a mayor exactitud, sobre todo lo contado. Solo considera faltantes (lo contado de menos); los sobrantes no restan aquí, se ven en sus columnas aparte</div>
+      <div id="rep-tiendas-chart-area" class="chart-wrap" style="margin-bottom:1rem"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
+      <div class="chart-card-title">Detalle por tienda</div>
+      <div id="rep-tiendas-area"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
+
+      <div class="rep-section-head" style="justify-content:space-between;margin-top:22px">
+        <div style="display:flex;align-items:center;gap:8px"><span class="rep-badge">4</span><span class="rep-section-title">Impacto por categoría</span></div>
         <button class="btn-ghost" onclick="descargarCategoriasCSV()"><i class="ti ti-download"></i> Descargar CSV</button>
       </div>
       <div class="chart-card-title">SKUs con diferencia por categoría</div>
@@ -593,26 +601,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="ctrl-field" style="max-width:280px;margin:0 0 10px"><label>Categoría</label><select id="rep-cat-drill" onchange="loadTopProductosCategoria()"><option value="">Selecciona una categoría…</option></select></div>
       <div id="rep-cat-drill-area"></div>
 
-      <div class="rep-section-head" style="justify-content:space-between;margin-top:22px">
-        <div style="display:flex;align-items:center;gap:8px"><span class="rep-badge">4</span><span class="rep-section-title">Comparativa por tienda</span></div>
-        <button class="btn-ghost" onclick="descargarComparativaCSV()"><i class="ti ti-download"></i> Descargar CSV</button>
-      </div>
-      <div class="chart-card-title">% Exactitud por tienda</div>
-      <div class="chart-card-sub">Tiendas ordenadas de menor a mayor exactitud, sobre todo lo contado. Solo considera faltantes (lo contado de menos); los sobrantes no restan aquí, se ven en sus columnas aparte</div>
-      <div id="rep-tiendas-chart-area" class="chart-wrap" style="margin-bottom:1rem"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
-      <div class="chart-card-title">Detalle por tienda</div>
-      <div id="rep-tiendas-area"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
-
       <div class="rep-section-head" style="margin-top:22px">
-        <span class="rep-badge">5</span><span class="rep-section-title">Mapa de calor</span>
+        <span class="rep-badge">5</span><span class="rep-section-title">Detalle de órdenes por TR</span>
       </div>
-      <div class="chart-card-title">Tienda × Día</div>
-      <div class="chart-card-sub">Muestra todo el histórico (no respeta los filtros de arriba) — cambia la vista para ver dónde se concentra la actividad o los problemas</div>
-      <div class="filter-pills" style="margin-bottom:10px">
-        <div class="fpill active" id="hm-tab-actividad" onclick="setMapaCalorModo('actividad')">Actividad</div>
-        <div class="fpill" id="hm-tab-problemas" onclick="setMapaCalorModo('problemas')">Problemas</div>
-      </div>
-      <div id="rep-heatmap-area" class="chart-wrap"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
+      <div id="rep-area"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
     </div>
   </div>
 </div>
@@ -780,7 +772,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const K_SESSION='wms_session',K_COUNTS='wms_counts',K_CONFIG='wms_config';
 const K_SESSION_SC='wms_session_scanner';
 const MODO=new URLSearchParams(location.search).get('modulo')==='escaner'?'escaner':'main';
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbzuSEBeSj1hwyuzSlzxPuy7k191XjEqHlwXGmKsVQBjbBYyhiW4DSrdiIzMHwuIR7GRLA/exec';
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbwJnzuQbSbwhsFzZCJhHU6vpqBuxl8a1q0AgYixcIzAUATpTwIR5VHZt9i3pK0cJXXzvQ/exec';
 let session=null,storeData={},counts={},curProd=null,closedStores={},activeFilter='all',syncInterval=null,lastSync=null;
 let scSession=null,scTiendaMap={},scPrecarga=[],scConteos={},scOrdenCerrada=false,scCurrentTR=null,scCurrentTienda=null,scFilter='all',scSyncInterval=null;
 function goToScannerModule(){showScreen('scr-login-scanner');}
@@ -1902,7 +1894,6 @@ async function loadReportes(){
   loadProgresoDiario();
   loadCategorias();
   loadComparativaTiendas();
-  loadMapaCalor();
 }
 // El filtro de "Día" mira el timestamp real de cada conteo (no la fecha de carga de la precarga),
 // así que requiere su propia consulta al backend — no se puede derivar del resumen general en el cliente.
@@ -2276,75 +2267,6 @@ function descargarComparativaCSV(){
   a.href=url;a.download=`comparativa_tiendas_${fecha}.csv`;
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   URL.revokeObjectURL(url);
-}
-
-// --- Mapa de calor tienda × día: muestra siempre el histórico completo (no respeta los
-// filtros de Tienda/Día de arriba, que no tendrían mucho sentido aquí) — un toggle cliente
-// cambia si el color representa actividad (contados) o problemas (diferencias), sin refetch. ---
-let mapaCalorData=[];
-let mapaCalorModo='actividad';
-async function loadMapaCalor(){
-  const area=document.getElementById('rep-heatmap-area');
-  area.innerHTML='<div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div>';
-  try{
-    const r=await fetch(getUrl()+'?action=getMapaCalor');
-    const d=await r.json();
-    if(!d.ok){area.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>'+(d.error||'Error al cargar')+'</div>';return;}
-    mapaCalorData=d.data||[];
-    renderMapaCalor();
-  }catch{area.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>Sin conexión</div>';}
-}
-function setMapaCalorModo(modo){
-  mapaCalorModo=modo;
-  document.getElementById('hm-tab-actividad').classList.toggle('active',modo==='actividad');
-  document.getElementById('hm-tab-problemas').classList.toggle('active',modo==='problemas');
-  renderMapaCalor();
-}
-function renderMapaCalor(){
-  const area=document.getElementById('rep-heatmap-area');
-  if(!mapaCalorData.length){area.innerHTML='<div class="empty-state"><i class="ti ti-grid-dots"></i>Aún no hay conteos registrados</div>';return;}
-  const tiendas=[...new Set(mapaCalorData.map(c=>c.tienda))].sort();
-  const diasTodos=[...new Set(mapaCalorData.map(c=>c.dia))].sort();
-  const MAX_DIAS=30; // se recorta a los últimos N días con actividad para que el ancho no se dispare
-  const dias=diasTodos.slice(-MAX_DIAS);
-  const porCelda={};
-  mapaCalorData.forEach(c=>{porCelda[c.tienda+'|'+c.dia]=c;});
-  const labelW=110,cellW=24,cellH=22,padT=6,padB=30,padR=6;
-  const w=labelW+dias.length*cellW+padR, h=padT+tiendas.length*cellH+padB;
-  const metric=mapaCalorModo==='actividad'?'contados':'diferencias';
-  const maxVal=Math.max(1,...dias.flatMap(dia=>tiendas.map(t=>(porCelda[t+'|'+dia]||{})[metric]||0)));
-  const colorFn=v=>{
-    if(!v)return 'var(--bg2)';
-    const t=Math.min(1,v/maxVal);
-    return mapaCalorModo==='actividad'?`rgba(53,211,153,${0.18+0.72*t})`:`rgba(239,75,36,${0.18+0.72*t})`;
-  };
-  let cells='';
-  tiendas.forEach((t,ti)=>{
-    const y=padT+ti*cellH;
-    const label=t.length>16?t.slice(0,15)+'…':t;
-    cells+=`<text x="${labelW-8}" y="${y+cellH/2+4}" text-anchor="end" font-size="11" fill="var(--text)">${label}</text>`;
-    dias.forEach((dia,di)=>{
-      const x=labelW+di*cellW;
-      const c=porCelda[t+'|'+dia];
-      const val=c?c[metric]:0;
-      const tip=c?`${t} · ${dia}: ${c.contados} contados, ${c.diferencias} con diferencia`:`${t} · ${dia}: sin actividad`;
-      cells+=`<g><title>${tip}</title><rect x="${x+1}" y="${y+1}" width="${cellW-2}" height="${cellH-2}" rx="2" fill="${colorFn(val)}"/></g>`;
-    });
-  });
-  let diaLabels='';
-  const step=dias.length>18?3:dias.length>10?2:1;
-  dias.forEach((dia,di)=>{
-    if(di%step!==0&&di!==dias.length-1)return;
-    const partes=dia.split('-');
-    const x=labelW+di*cellW+cellW/2;
-    diaLabels+=`<text x="${x}" y="${padT+tiendas.length*cellH+16}" text-anchor="middle" font-size="9" fill="var(--text3)">${partes[2]}/${partes[1]}</text>`;
-  });
-  const svg=`<svg viewBox="0 0 ${w} ${h}" style="display:block;width:${w}px" role="img" aria-label="Mapa de calor de actividad por tienda y día">
-    ${cells}
-    ${diaLabels}
-  </svg>`;
-  const nota=diasTodos.length>MAX_DIAS?`<div class="chart-card-sub" style="margin-top:6px">Mostrando los últimos ${MAX_DIAS} días con actividad, de ${diasTodos.length} en total</div>`:'';
-  area.innerHTML=svg+nota;
 }
 
 // --- Cámara / escaneo de código de barras ---
