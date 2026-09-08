@@ -588,6 +588,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="chart-card-title">Detalle por categoría</div>
       <div id="rep-cat-area"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
 
+      <div class="chart-card-title" style="margin-top:18px">Top productos con faltantes</div>
+      <div class="chart-card-sub" style="margin-bottom:8px">Elige una categoría para ver qué productos concentran más piezas faltantes (sumadas entre TRs)</div>
+      <div class="ctrl-field" style="max-width:280px;margin:0 0 10px"><label>Categoría</label><select id="rep-cat-drill" onchange="loadTopProductosCategoria()"><option value="">Selecciona una categoría…</option></select></div>
+      <div id="rep-cat-drill-area"></div>
+
       <div class="rep-section-head" style="justify-content:space-between;margin-top:22px">
         <div style="display:flex;align-items:center;gap:8px"><span class="rep-badge">4</span><span class="rep-section-title">Comparativa por tienda</span></div>
         <button class="btn-ghost" onclick="descargarComparativaCSV()"><i class="ti ti-download"></i> Descargar CSV</button>
@@ -775,7 +780,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const K_SESSION='wms_session',K_COUNTS='wms_counts',K_CONFIG='wms_config';
 const K_SESSION_SC='wms_session_scanner';
 const MODO=new URLSearchParams(location.search).get('modulo')==='escaner'?'escaner':'main';
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbzEfN9dU_rkMwVeFK6TPcniRddglncTRuOQXgaLBZ5oOSkRgpn27hUSahNjakbA9h9A7A/exec';
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbzuSEBeSj1hwyuzSlzxPuy7k191XjEqHlwXGmKsVQBjbBYyhiW4DSrdiIzMHwuIR7GRLA/exec';
 let session=null,storeData={},counts={},curProd=null,closedStores={},activeFilter='all',syncInterval=null,lastSync=null;
 let scSession=null,scTiendaMap={},scPrecarga=[],scConteos={},scOrdenCerrada=false,scCurrentTR=null,scCurrentTienda=null,scFilter='all',scSyncInterval=null;
 function goToScannerModule(){showScreen('scr-login-scanner');}
@@ -2110,6 +2115,7 @@ async function loadCategorias(){
     repCatData=d.data||[];
     renderCategoriasChart(repCatData);
     renderCategoriasTable(repCatData);
+    poblarDropdownCategorias(repCatData);
   }catch{chartArea.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>Sin conexión</div>';}
 }
 function renderCategoriasChart(data){
@@ -2158,6 +2164,40 @@ function descargarCategoriasCSV(){
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+// Drill-down: top productos con más piezas faltantes dentro de una categoría (sección "Impacto
+// por categoría"). El dropdown solo lista categorías con diferencias (mismas que la tabla de
+// arriba); se repuebla cada vez que cambian los filtros de tienda/día, tratando de conservar la
+// selección si la categoría elegida sigue existiendo.
+function poblarDropdownCategorias(data){
+  const sel=document.getElementById('rep-cat-drill');
+  const prev=sel.value;
+  sel.innerHTML='<option value="">Selecciona una categoría…</option>'+data.map(d=>`<option value="${d.categoria.replace(/"/g,'&quot;')}">${d.categoria}</option>`).join('');
+  if(prev && data.some(d=>d.categoria===prev)){ sel.value=prev; loadTopProductosCategoria(); }
+  else{ document.getElementById('rep-cat-drill-area').innerHTML=''; }
+}
+async function loadTopProductosCategoria(){
+  const categoria=document.getElementById('rep-cat-drill').value;
+  const area=document.getElementById('rep-cat-drill-area');
+  if(!categoria){area.innerHTML='';return;}
+  area.innerHTML='<div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div>';
+  const tienda=document.getElementById('rep-sel-store').value;
+  const dia=document.getElementById('rep-sel-dia').value;
+  try{
+    const r=await fetch(getUrl()+'?action=getTopProductosCategoria&categoria='+encodeURIComponent(categoria)+(tienda?'&tienda='+encodeURIComponent(tienda):'')+(dia?'&dia='+encodeURIComponent(dia):''));
+    const d=await r.json();
+    if(!d.ok){area.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>'+(d.error||'Error al cargar')+'</div>';return;}
+    const data=d.data||[];
+    if(!data.length){area.innerHTML='<div class="empty-state"><i class="ti ti-checks"></i>Sin conteos en esta categoría</div>';return;}
+    let html='<div style="overflow-x:auto"><table class="users-table"><thead><tr><th>Producto</th><th>EAN</th><th>Contados</th><th>SKUs c/ diferencia</th><th>Piezas faltantes</th><th>Piezas sobrantes</th></tr></thead><tbody>';
+    data.forEach(o=>{
+      const falt=o.piezasFaltantes>0?`<span style="color:var(--red);font-weight:600">${o.piezasFaltantes}</span>`:'—';
+      const sob=o.piezasSobrantes>0?`<span style="color:var(--blue);font-weight:600">${o.piezasSobrantes}</span>`:'—';
+      html+=`<tr><td>${o.nombre||'—'}</td><td>${o.ean}</td><td>${o.contados}</td><td>${o.diferencias}</td><td>${falt}</td><td>${sob}</td></tr>`;
+    });
+    html+='</tbody></table></div>';
+    area.innerHTML=html;
+  }catch{area.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>Sin conexión</div>';}
+}
 
 // --- Comparativa por tienda: misma actividad de getEscanerResumen pero agrupada por tienda,
 // para comparar tiendas entre sí en vez de TRs individuales. Respeta el filtro de Día (no el
@@ -2204,23 +2244,30 @@ function renderComparativaTable(data){
   const area=document.getElementById('rep-tiendas-area');
   if(!data.length){area.innerHTML='';return;}
   const rows=data.slice().sort((a,b)=>a.tienda.localeCompare(b.tienda));
-  let html='<div style="overflow-x:auto"><table class="users-table"><thead><tr><th>Tienda</th><th>TRs</th><th>Cerrados</th><th>Contados</th><th title="No incluye sobrantes, solo faltantes">% Exactitud</th><th>SKUs c/ diferencia</th><th>Sobrantes</th><th>Faltantes</th><th>No precargados</th><th>Cierre prom.</th></tr></thead><tbody>';
+  let html='<div style="overflow-x:auto"><table class="users-table"><thead><tr><th>Tienda</th><th>TRs</th><th>Cerrados</th><th>Contados</th>'
+    +'<th title="No incluye sobrantes, solo faltantes">% Exactitud</th><th title="% de líneas contadas con faltante">% SKUs c/ faltante</th><th title="% de TRs contados con al menos 1 faltante">% TRs c/ faltante</th>'
+    +'<th>SKUs c/ diferencia</th><th>Sobrantes</th><th>Faltantes</th><th>No precargados</th>'
+    +'<th title="Suma de Cantidad Precargada en las líneas contadas">Piezas precargadas</th><th title="Física + dañada, todo lo que llegó">Piezas recibidas</th><th title="Piezas faltantes ÷ piezas precargadas">% Piezas faltante</th>'
+    +'<th>Cierre prom.</th></tr></thead><tbody>';
   rows.forEach(d=>{
     const pct=d.pctExactitud===null?'—':`${d.pctExactitud}%`;
+    const pctSkuF=d.pctSkusFaltante===null?'—':`${d.pctSkusFaltante}%`;
+    const pctTrF=d.pctTrsConFaltante===null?'—':`${d.pctTrsConFaltante}% (${d.trsConFaltante}/${d.trsContados})`;
+    const pctPzF=d.pctPiezasFaltante===null?'—':`${d.pctPiezasFaltante}%`;
     const dif=d.diferencias>0?`<span style="color:var(--amber);font-weight:600">${d.diferencias}</span>`:'—';
     const sob=d.sobrantes>0?`<span style="color:var(--blue);font-weight:600">${d.sobrantes}</span>`:'—';
     const falt=d.faltantes>0?`<span style="color:var(--red);font-weight:600">${d.faltantes}</span>`:'—';
     const ext=d.extras>0?`<span style="color:var(--text2);font-weight:600">${d.extras}</span>`:'—';
-    html+=`<tr><td>${d.tienda}</td><td>${d.trs}</td><td>${d.trsCerrados}</td><td>${d.contados}</td><td>${pct}</td><td>${dif}</td><td>${sob}</td><td>${falt}</td><td>${ext}</td><td>${fmtMin(d.duracionMinProm)}</td></tr>`;
+    html+=`<tr><td>${d.tienda}</td><td>${d.trs}</td><td>${d.trsCerrados}</td><td>${d.contados}</td><td>${pct}</td><td>${pctSkuF}</td><td>${pctTrF}</td><td>${dif}</td><td>${sob}</td><td>${falt}</td><td>${ext}</td><td>${d.piezasPrecargadas}</td><td>${d.piezasRecibidas}</td><td>${pctPzF}</td><td>${fmtMin(d.duracionMinProm)}</td></tr>`;
   });
   html+='</tbody></table></div>';
   area.innerHTML=html;
 }
 function descargarComparativaCSV(){
   if(!repTiendasData.length){toast('No hay datos para descargar');return;}
-  const headers=['Tienda','TRs','TRs cerrados','Contados','% Exactitud','SKUs con diferencia','Sobrantes','Faltantes','No precargados','Tiempo de cierre prom. (min)'];
+  const headers=['Tienda','TRs','TRs cerrados','Contados','% Exactitud','% SKUs con faltante','% TRs con faltante','TRs con faltante','TRs contados','SKUs con diferencia','Sobrantes','Faltantes','No precargados','Piezas precargadas','Piezas recibidas','% Piezas faltante','Tiempo de cierre prom. (min)'];
   const csvEsc=v=>{const s=String(v===null||v===undefined?'':v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
-  const rows=repTiendasData.slice().sort((a,b)=>a.tienda.localeCompare(b.tienda)).map(d=>[d.tienda,d.trs,d.trsCerrados,d.contados,d.pctExactitud===null?'':d.pctExactitud,d.diferencias,d.sobrantes,d.faltantes,d.extras,d.duracionMinProm===null||d.duracionMinProm===undefined?'':d.duracionMinProm]);
+  const rows=repTiendasData.slice().sort((a,b)=>a.tienda.localeCompare(b.tienda)).map(d=>[d.tienda,d.trs,d.trsCerrados,d.contados,d.pctExactitud===null?'':d.pctExactitud,d.pctSkusFaltante===null?'':d.pctSkusFaltante,d.pctTrsConFaltante===null?'':d.pctTrsConFaltante,d.trsConFaltante,d.trsContados,d.diferencias,d.sobrantes,d.faltantes,d.extras,d.piezasPrecargadas,d.piezasRecibidas,d.pctPiezasFaltante===null?'':d.pctPiezasFaltante,d.duracionMinProm===null||d.duracionMinProm===undefined?'':d.duracionMinProm]);
   const csv='\uFEFF'+[headers,...rows].map(r=>r.map(csvEsc).join(',')).join('\r\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
