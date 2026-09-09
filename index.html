@@ -9,8 +9,8 @@
 <script src="https://cdn.jsdelivr.net/npm/blueimp-load-image@5.16.0/js/load-image.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
-:root{--bg:#fff;--bg2:#f6f6f4;--bg3:#efefec;--text:#1a1a18;--text2:#6b6b67;--text3:#9b9b96;--border:rgba(0,0,0,.12);--border2:rgba(0,0,0,.22);--green:#1D9E75;--green-bg:#E1F5EE;--green-dk:#0F6E56;--red:#A32D2D;--red-bg:#FCEBEB;--red-b:#F09595;--blue:#1860CC;--blue-bg:#E8F0FC;--amber:#B45309;--amber-bg:#FEF3C7;--amber-b:#F9A825;--r:8px;--rl:12px}
-@media(prefers-color-scheme:dark){:root{--bg:#1c1c1a;--bg2:#252523;--bg3:#2e2e2b;--text:#f0f0ec;--text2:#9b9b96;--text3:#6b6b67;--border:rgba(255,255,255,.10);--border2:rgba(255,255,255,.20);--green-bg:#0a3d2b;--green-dk:#5DCAA5;--red-bg:#3d1010;--red-b:#7a2020;--blue-bg:#0c1f45;--amber-bg:#2d1f00;--amber-b:#92620a}}
+:root{--bg:#fff;--bg2:#f6f6f4;--bg3:#efefec;--text:#1a1a18;--text2:#6b6b67;--text3:#9b9b96;--border:rgba(0,0,0,.12);--border2:rgba(0,0,0,.22);--green:#1D9E75;--green-bg:#E1F5EE;--green-dk:#0F6E56;--red:#A32D2D;--red-bg:#FCEBEB;--red-b:#F09595;--blue:#1860CC;--blue-bg:#E8F0FC;--amber:#B45309;--amber-bg:#FEF3C7;--amber-b:#F9A825;--purple:#6D28D9;--purple-bg:#F1E9FB;--r:8px;--rl:12px}
+@media(prefers-color-scheme:dark){:root{--bg:#1c1c1a;--bg2:#252523;--bg3:#2e2e2b;--text:#f0f0ec;--text2:#9b9b96;--text3:#6b6b67;--border:rgba(255,255,255,.10);--border2:rgba(255,255,255,.20);--green-bg:#0a3d2b;--green-dk:#5DCAA5;--red-bg:#3d1010;--red-b:#7a2020;--blue-bg:#0c1f45;--amber-bg:#2d1f00;--amber-b:#92620a;--purple-bg:#2a1f45}}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg3);color:var(--text);min-height:100vh}
 .screen{display:none}.screen.active{display:block}
@@ -217,6 +217,48 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .report-banner-txt{flex:1;min-width:0}
 .report-banner-title{font-size:14px;font-weight:600;color:var(--text)}
 .report-banner-sub{font-size:11.5px;color:var(--text2);margin-top:1px}
+.manual-step{display:flex;gap:12px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--rl);padding:14px;margin-bottom:10px;page-break-inside:avoid}
+.manual-step-num{flex-shrink:0;width:30px;height:30px;border-radius:50%;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.manual-step-icon{flex-shrink:0;width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px}
+.manual-step-body{flex:1;min-width:0}
+.manual-step-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px}
+.manual-step-desc{font-size:12.5px;color:var(--text2);line-height:1.5}
+.manual-step-desc b{color:var(--text);font-weight:600}
+.manual-tip{display:flex;gap:8px;align-items:flex-start;background:var(--amber-bg);border:1px solid var(--amber-b);border-radius:var(--r);padding:9px 11px;margin-top:8px;font-size:11.5px;color:var(--text);line-height:1.45}
+.manual-tip i{color:var(--amber);flex-shrink:0;margin-top:1px}
+.manual-section-title{font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin:20px 0 10px}
+.manual-section-title:first-child{margin-top:0}
+.flujo-header{background:linear-gradient(135deg,#0F3D73 0%,#0A2C56 100%);border-radius:var(--rl);padding:18px 18px;margin-bottom:16px;page-break-inside:avoid}
+.flujo-header h2{color:#fff;font-size:16px;font-weight:700;margin-bottom:4px}
+.flujo-header p{color:#CFE0F6;font-size:12px;line-height:1.4;margin:0}
+.flujo-step{display:flex;gap:12px;background:var(--bg);border:1px solid var(--border2);border-top:3px solid var(--flc,var(--blue));border-radius:var(--rl);padding:14px;margin-bottom:8px;page-break-inside:avoid}
+.flujo-step-num{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--flc,var(--blue));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.flujo-step-icon{flex-shrink:0;width:36px;height:36px;border-radius:10px;background:color-mix(in srgb,var(--flc,var(--blue)) 15%,transparent);color:var(--flc,var(--blue));display:flex;align-items:center;justify-content:center;font-size:17px}
+.flujo-step-body{flex:1;min-width:0}
+.flujo-step-title{font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:2px}
+.flujo-step-desc{font-size:12px;color:var(--text2);line-height:1.5}
+.flujo-arrow-down{display:flex;justify-content:center;color:var(--text3);margin:-2px 0;font-size:16px}
+.flujo-ejemplos{background:var(--bg);border:1px solid var(--border2);border-radius:var(--rl);padding:16px;margin:18px 0;page-break-inside:avoid}
+.flujo-ejemplos-title{display:inline-flex;align-items:center;gap:6px;background:var(--blue);color:#fff;padding:5px 12px;border-radius:8px;font-weight:700;font-size:12.5px;margin-bottom:14px}
+.flujo-ejemplo{border-top:1px solid var(--border);padding-top:12px;margin-top:12px}
+.flujo-ejemplo:first-of-type{border-top:none;padding-top:0;margin-top:0}
+.flujo-ejemplo-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.flujo-ejemplo-num{flex-shrink:0;width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.flujo-ejemplo-head h4{font-size:12.5px;font-weight:600;color:var(--text)}
+.mini-flow{display:flex;align-items:stretch;gap:5px;flex-wrap:wrap}
+.mini-card{flex:1 1 80px;border-radius:var(--r);padding:8px 6px;text-align:center;border:1px solid transparent}
+.mini-card .k{font-size:9px;text-transform:uppercase;letter-spacing:.03em;font-weight:700;opacity:.85}
+.mini-card .v{font-size:10px;margin-top:4px;line-height:1.3;color:var(--text)}
+.mini-card .n{font-size:17px;font-weight:800;margin-top:2px}
+.mini-arrow{display:flex;align-items:center;color:var(--text3);flex:0 0 10px;font-size:12px}
+.m-amber{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-b)}
+.m-red{background:var(--red-bg);color:var(--red);border-color:var(--red-b)}
+.m-green{background:var(--green-bg);color:var(--green-dk);border-color:var(--green)}
+.m-blue{background:var(--blue-bg);color:var(--blue);border-color:var(--blue)}
+.flujo-resumen{display:flex;gap:12px;align-items:flex-start;background:var(--blue-bg);border:1px solid var(--blue);border-radius:var(--rl);padding:16px;page-break-inside:avoid}
+.flujo-resumen .check{flex-shrink:0;width:30px;height:30px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px}
+.flujo-resumen h3{font-size:13.5px;font-weight:700;color:var(--blue);margin-bottom:5px}
+.flujo-resumen p{margin:0;font-size:12.5px;line-height:1.55;color:var(--text)}
 .chart-wrap{overflow-x:auto;background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:12px 14px}
 .rep-section-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .rep-badge{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--amber);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
@@ -538,6 +580,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
         <i class="ti ti-chevron-right" style="color:var(--amber)"></i>
       </div>
+      <div class="report-banner" style="background:var(--blue-bg);border-color:var(--blue)" onclick="showScreen('scr-manual')" role="button" tabindex="0">
+        <div class="report-banner-icon" style="background:var(--blue)"><i class="ti ti-book-2"></i></div>
+        <div class="report-banner-txt">
+          <div class="report-banner-title">Manual de uso</div>
+          <div class="report-banner-sub">Cómo contar un TR, paso a paso</div>
+        </div>
+        <i class="ti ti-chevron-right" style="color:var(--blue)"></i>
+      </div>
+      <div class="report-banner" style="background:var(--purple-bg);border-color:var(--purple)" onclick="showScreen('scr-flujo-aduana')" role="button" tabindex="0">
+        <div class="report-banner-icon" style="background:var(--purple)"><i class="ti ti-truck-delivery"></i></div>
+        <div class="report-banner-txt">
+          <div class="report-banner-title">Flujo Aduana · WMS · Nitro</div>
+          <div class="report-banner-sub">Por qué un producto puede llegar en menor cantidad o no llegar</div>
+        </div>
+        <i class="ti ti-chevron-right" style="color:var(--purple)"></i>
+      </div>
       <div class="ctrl-field" style="margin-bottom:1rem"><label>Tienda</label><select id="sc-sel-store" onchange="onScSelectStore()"><option value="">— Seleccionar tienda —</option></select></div>
       <div id="sc-tr-area"><div class="empty-state"><i class="ti ti-building-store"></i>Selecciona una tienda para ver sus TR pendientes</div></div>
     </div>
@@ -601,6 +659,214 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <span class="rep-badge">5</span><span class="rep-section-title">Detalle de órdenes por TR</span>
       </div>
       <div id="rep-area"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MANUAL DE USO: guía visual paso a paso para el contador (no incluye explicación de Reportes) -->
+<div id="scr-manual" class="screen">
+  <div class="main-page">
+    <div class="top-bar">
+      <button class="btn-ghost" onclick="showScreen('scr-scanner-select')"><i class="ti ti-arrow-left"></i></button>
+      <div class="top-logo" style="min-width:0"><span>Manual de uso</span></div>
+      <button class="btn-ghost" onclick="descargarComoPDF('manual-pdf-content','Manual-de-uso-Punto-de-Control.pdf')"><i class="ti ti-download"></i> PDF</button>
+    </div>
+    <div class="content">
+      <div id="manual-pdf-content">
+        <div class="report-banner" style="background:var(--blue-bg);border-color:var(--blue);cursor:default;margin-bottom:1.2rem">
+          <div class="report-banner-icon" style="background:var(--blue)"><i class="ti ti-book-2"></i></div>
+          <div class="report-banner-txt">
+            <div class="report-banner-title">Guía del contador</div>
+            <div class="report-banner-sub">Cómo hacer el conteo físico de un TR con el escáner, paso a paso</div>
+          </div>
+        </div>
+
+        <div class="manual-section-title">Antes de empezar</div>
+        <div class="manual-step">
+          <div class="manual-step-num" style="background:var(--blue)">1</div>
+          <div class="manual-step-body">
+            <div class="manual-step-title">Inicia sesión</div>
+            <div class="manual-step-desc">Entra con tu usuario y PIN. Si aún no tienes cuenta, solicita acceso desde la pantalla de inicio y espera a que un administrador la apruebe.</div>
+          </div>
+        </div>
+        <div class="manual-step">
+          <div class="manual-step-num" style="background:var(--blue)">2</div>
+          <div class="manual-step-body">
+            <div class="manual-step-title">Elige tienda y TR</div>
+            <div class="manual-step-desc">Selecciona la <b>tienda</b> y después la <b>TR (orden)</b> pendiente que vas a contar. Cada TR muestra su avance en piezas ya registradas.</div>
+          </div>
+        </div>
+
+        <div class="manual-section-title">Durante el conteo</div>
+        <div class="manual-step">
+          <div class="manual-step-num" style="background:var(--green)">3</div>
+          <div class="manual-step-body">
+            <div class="manual-step-title">Revisa el avance y los filtros</div>
+            <div class="manual-step-desc">Arriba verás la barra de progreso (<b>contados / total</b>). Usa <b>Buscar</b> por nombre o EAN, o los filtros <b>Todos · Pendientes · Contados · ⚠️ Con diferencia</b> para moverte rápido por la lista.</div>
+          </div>
+        </div>
+        <div class="manual-step">
+          <div class="manual-step-num" style="background:var(--green)">4</div>
+          <div class="manual-step-icon" style="background:var(--green-bg);color:var(--green)"><i class="ti ti-barcode"></i></div>
+          <div class="manual-step-body">
+            <div class="manual-step-title">Escanea el producto</div>
+            <div class="manual-step-desc">Toca el botón flotante de escáner y apunta la cámara al código de barras, cubriendo la mayor parte del recuadro. No es necesario acercarte demasiado.</div>
+          </div>
+        </div>
+        <div class="manual-step">
+          <div class="manual-step-num" style="background:var(--green)">5</div>
+          <div class="manual-step-body">
+            <div class="manual-step-title">Registra la cantidad</div>
+            <div class="manual-step-desc">Captura la <b>cantidad física en buen estado</b> y, si aplica, la <b>cantidad dañada</b>. Si ya habías contado ese producto antes, puedes usar <b>Adicionar</b> para sumarle cantidad extra sin perder lo ya registrado.</div>
+            <div class="manual-tip"><i class="ti ti-info-circle"></i>Si no encontraste el producto, deja ambos campos en 0 — es obligatorio registrar todos los productos de la lista, aunque sea con 0.</div>
+          </div>
+        </div>
+        <div class="manual-step">
+          <div class="manual-step-num" style="background:var(--amber)">6</div>
+          <div class="manual-step-icon" style="background:var(--amber-bg);color:var(--amber)"><i class="ti ti-alert-triangle"></i></div>
+          <div class="manual-step-body">
+            <div class="manual-step-title">Si la cantidad no coincide</div>
+            <div class="manual-step-desc">Cuando lo que capturaste es distinto a lo precargado, la app te pregunta <b>"¿Seguro de tu conteo?"</b>. Elige <b>"No, revisar"</b> para volver a contar, o <b>"Sí, guardar"</b> si ya verificaste que es correcto.</div>
+          </div>
+        </div>
+        <div class="manual-step">
+          <div class="manual-step-num" style="background:var(--amber)">7</div>
+          <div class="manual-step-icon" style="background:var(--amber-bg);color:var(--amber)"><i class="ti ti-plus"></i></div>
+          <div class="manual-step-body">
+            <div class="manual-step-title">Producto sobrante no precargado</div>
+            <div class="manual-step-desc">Si encuentras físicamente un producto que <b>no estaba en la lista precargada</b> de la TR, no lo escanees en el flujo normal: usa <b>"+ Agregar"</b> en la sección de sobrantes, e ingresa EAN, nombre (opcional) y cantidad. Se registra directo como sobrante.</div>
+          </div>
+        </div>
+
+        <div class="manual-section-title">Al terminar</div>
+        <div class="manual-step">
+          <div class="manual-step-num" style="background:var(--red)">8</div>
+          <div class="manual-step-icon" style="background:var(--red-bg);color:var(--red)"><i class="ti ti-lock"></i></div>
+          <div class="manual-step-body">
+            <div class="manual-step-title">Cierra la orden</div>
+            <div class="manual-step-desc">Cuando termines de contar todos los productos de la TR, toca <b>"Cerrar orden"</b>. Una vez cerrada, ya no se puede modificar el conteo desde el escáner.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FLUJO ADUANA · WMS · NITRO: referencia visual del ajuste de cantidades por Aduana -->
+<div id="scr-flujo-aduana" class="screen">
+  <div class="main-page">
+    <div class="top-bar">
+      <button class="btn-ghost" onclick="showScreen('scr-scanner-select')"><i class="ti ti-arrow-left"></i></button>
+      <div class="top-logo" style="min-width:0"><span>Flujo Aduana · WMS · Nitro</span></div>
+      <button class="btn-ghost" onclick="descargarComoPDF('flujo-pdf-content','Flujo-Aduana-WMS-Nitro.pdf')"><i class="ti ti-download"></i> PDF</button>
+    </div>
+    <div class="content">
+      <div id="flujo-pdf-content">
+        <div class="flujo-header">
+          <h2>Traxion → Aduana → WMS → Nitro</h2>
+          <p>Cómo una negación o autorización parcial de Aduana se propaga hasta la disponibilidad del producto en Nitro</p>
+        </div>
+
+        <div class="flujo-step" style="--flc:var(--amber)">
+          <div class="flujo-step-num">1</div>
+          <div class="flujo-step-icon"><i class="ti ti-truck-delivery"></i></div>
+          <div class="flujo-step-body">
+            <div class="flujo-step-title">Pickeo por Traxion</div>
+            <div class="flujo-step-desc">Traxion realiza el pickeo de la mercancía con la cantidad originalmente solicitada, antes de que pase por la revisión de Aduana.</div>
+          </div>
+        </div>
+        <div class="flujo-arrow-down"><i class="ti ti-arrow-down"></i></div>
+
+        <div class="flujo-step" style="--flc:var(--red)">
+          <div class="flujo-step-num">2</div>
+          <div class="flujo-step-icon"><i class="ti ti-shield-x"></i></div>
+          <div class="flujo-step-body">
+            <div class="flujo-step-title">Aduana niega un producto</div>
+            <div class="flujo-step-desc">Aduana puede negar total o parcialmente un producto (entrada o liberación).</div>
+          </div>
+        </div>
+        <div class="flujo-arrow-down"><i class="ti ti-arrow-down"></i></div>
+
+        <div class="flujo-step" style="--flc:var(--green)">
+          <div class="flujo-step-num">3</div>
+          <div class="flujo-step-icon"><i class="ti ti-building-warehouse"></i></div>
+          <div class="flujo-step-body">
+            <div class="flujo-step-title">WMS ajusta la cantidad</div>
+            <div class="flujo-step-desc">Se modifica la cantidad del producto en WMS a la cantidad efectivamente autorizada por Aduana, pudiendo ser 0 o un valor menor al solicitado originalmente.</div>
+          </div>
+        </div>
+        <div class="flujo-arrow-down"><i class="ti ti-arrow-down"></i></div>
+
+        <div class="flujo-step" style="--flc:var(--purple)">
+          <div class="flujo-step-num">4</div>
+          <div class="flujo-step-icon"><i class="ti ti-clipboard-check"></i></div>
+          <div class="flujo-step-body">
+            <div class="flujo-step-title">Picking en WMS</div>
+            <div class="flujo-step-desc">Los valores de picking registrados en WMS se reflejan en Nitro.</div>
+          </div>
+        </div>
+        <div class="flujo-arrow-down"><i class="ti ti-arrow-down"></i></div>
+
+        <div class="flujo-step" style="--flc:var(--blue)">
+          <div class="flujo-step-num">5</div>
+          <div class="flujo-step-icon"><i class="ti ti-package"></i></div>
+          <div class="flujo-step-body">
+            <div class="flujo-step-title">Resultado en Nitro</div>
+            <div class="flujo-step-desc">Por lo tanto, en Nitro el producto puede <b>no aparecer</b> (si la cantidad autorizada fue 0), o <b>aparecer con una cantidad menor</b> a la solicitada inicialmente.</div>
+          </div>
+        </div>
+
+        <div class="flujo-ejemplos">
+          <div class="flujo-ejemplos-title"><i class="ti ti-bulb"></i> Ejemplos</div>
+
+          <div class="flujo-ejemplo">
+            <div class="flujo-ejemplo-head"><span class="flujo-ejemplo-num">1</span><h4>Aduana niega totalmente (cantidad = 0)</h4></div>
+            <div class="mini-flow">
+              <div class="mini-card m-amber"><div class="k">Traxion</div><div class="v">Pickeado</div><div class="n">10</div></div>
+              <div class="mini-arrow"><i class="ti ti-arrow-right"></i></div>
+              <div class="mini-card m-red"><div class="k">Aduana</div><div class="v">Autorizado</div><div class="n">0</div></div>
+              <div class="mini-arrow"><i class="ti ti-arrow-right"></i></div>
+              <div class="mini-card m-green"><div class="k">WMS</div><div class="v">Cantidad</div><div class="n">0</div></div>
+              <div class="mini-arrow"><i class="ti ti-arrow-right"></i></div>
+              <div class="mini-card m-blue"><div class="k">Nitro</div><div class="v" style="font-weight:700">No aparece</div></div>
+            </div>
+          </div>
+
+          <div class="flujo-ejemplo">
+            <div class="flujo-ejemplo-head"><span class="flujo-ejemplo-num">2</span><h4>Aduana aprueba parcialmente (cantidad menor)</h4></div>
+            <div class="mini-flow">
+              <div class="mini-card m-amber"><div class="k">Traxion</div><div class="v">Pickeado</div><div class="n">10</div></div>
+              <div class="mini-arrow"><i class="ti ti-arrow-right"></i></div>
+              <div class="mini-card m-red"><div class="k">Aduana</div><div class="v">Autorizado</div><div class="n">5</div></div>
+              <div class="mini-arrow"><i class="ti ti-arrow-right"></i></div>
+              <div class="mini-card m-green"><div class="k">WMS</div><div class="v">Cantidad</div><div class="n">5</div></div>
+              <div class="mini-arrow"><i class="ti ti-arrow-right"></i></div>
+              <div class="mini-card m-blue"><div class="k">Nitro</div><div class="v" style="font-weight:700">Aparece con 5</div></div>
+            </div>
+          </div>
+
+          <div class="flujo-ejemplo">
+            <div class="flujo-ejemplo-head"><span class="flujo-ejemplo-num">3</span><h4>Aduana aprueba la totalidad</h4></div>
+            <div class="mini-flow">
+              <div class="mini-card m-amber"><div class="k">Traxion</div><div class="v">Pickeado</div><div class="n">10</div></div>
+              <div class="mini-arrow"><i class="ti ti-arrow-right"></i></div>
+              <div class="mini-card m-red"><div class="k">Aduana</div><div class="v">Autorizado</div><div class="n">10</div></div>
+              <div class="mini-arrow"><i class="ti ti-arrow-right"></i></div>
+              <div class="mini-card m-green"><div class="k">WMS</div><div class="v">Cantidad</div><div class="n">10</div></div>
+              <div class="mini-arrow"><i class="ti ti-arrow-right"></i></div>
+              <div class="mini-card m-blue"><div class="k">Nitro</div><div class="v" style="font-weight:700">Aparece con 10</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flujo-resumen">
+          <div class="check"><i class="ti ti-check"></i></div>
+          <div>
+            <h3>En resumen</h3>
+            <p>Traxion realiza el pickeo original de la mercancía. Si Aduana niega un producto total o parcialmente, WMS ajusta la cantidad a lo efectivamente autorizado (0 o un valor menor), y los valores de picking en WMS se reflejan en Nitro — por lo que el producto puede no aparecer, o mostrarse con una cantidad menor a la solicitada inicialmente.</p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -780,6 +1046,38 @@ function lsSet(k,v){localStorage.setItem(k,JSON.stringify(v))}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
 function toast(msg,dur=2800){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur)}
 function getUrl(){return DEFAULT_URL;}
+
+let html2pdfLoading=null;
+function loadHtml2Pdf(){
+  if(window.html2pdf)return Promise.resolve();
+  if(html2pdfLoading)return html2pdfLoading;
+  html2pdfLoading=new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js';
+    s.onload=()=>resolve();
+    s.onerror=()=>{html2pdfLoading=null;reject(new Error('no se pudo cargar el generador de PDF'));};
+    document.head.appendChild(s);
+  });
+  return html2pdfLoading;
+}
+async function descargarComoPDF(elId,filename){
+  const el=document.getElementById(elId);
+  if(!el)return;
+  toast('Generando PDF...');
+  try{
+    await loadHtml2Pdf();
+    await window.html2pdf().set({
+      margin:[10,8,10,8],
+      filename:filename,
+      image:{type:'jpeg',quality:0.98},
+      html2canvas:{scale:2,useCORS:true,backgroundColor:getComputedStyle(document.body).backgroundColor||'#ffffff'},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+      pagebreak:{mode:['css','avoid-all']}
+    }).from(el).save();
+  }catch(err){
+    toast('No se pudo generar el PDF. Revisa tu conexión.');
+  }
+}
 
 function setSyncStatus(state,msg){
   const isAdmin=session?.rol==='admin';
