@@ -555,19 +555,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="content">
       <div class="controls" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
         <div class="ctrl-field" style="flex:1;min-width:160px;margin:0"><label>Tienda</label><select id="rep-sel-store" onchange="onRepFilterChange()"><option value="">Todas las tiendas</option></select></div>
-        <div class="ctrl-field" style="min-width:150px;margin:0"><label>Día</label><input type="date" id="rep-sel-dia" onchange="onRepFilterChange()"></div>
+        <div class="ctrl-field" style="min-width:150px;margin:0" title="No aplica en las gráficas de Históricos"><label>Día</label><input type="date" id="rep-sel-dia" onchange="onRepFilterChange()"></div>
         <button class="btn-ghost" id="rep-btn-clear-dia" onclick="limpiarFiltroDia()" style="display:none"><i class="ti ti-x"></i> Quitar día</button>
         <button class="btn-ghost" onclick="descargarReportesCSV()"><i class="ti ti-download"></i> Descargar CSV</button>
       </div>
       <div class="rep-section-head"><span class="rep-badge">1</span><span class="rep-section-title">Resumen</span></div>
-      <div class="chart-card-sub" style="margin-bottom:8px">"Exactitud (cerradas)" solo considera órdenes ya cerradas; "Exactitud (contado)" incluye todo lo contado hasta ahora, esté cerrado o no. Sobrantes = se contó de más; faltantes = se contó de menos; "No precargados" son sobrantes que ni siquiera estaban en la lista (ya incluidos en Sobrantes, aquí aparte solo para verlos). El filtro de Día aplica aquí, en "Impacto por categoría" y en "Comparativa por tienda" (según cuándo se contó cada producto), no en las gráficas de Históricos</div>
+      <div class="chart-card-sub" style="margin-bottom:8px">"No precargados" ya están incluidos en Sobrantes — aquí aparte solo para verlos</div>
       <div id="rep-stats" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:22px"></div>
 
       <div class="rep-section-head"><span class="rep-badge">2</span><span class="rep-section-title">Históricos</span></div>
       <div class="rep-chart-grid">
         <div>
           <div class="chart-card-title">Progreso día con día</div>
-          <div class="chart-card-sub">Todas las barras tienen la misma altura (composición del día, no volumen); el número de arriba es el total contado, y el tramo ámbar es qué proporción de eso tuvo diferencia</div>
+          <div class="chart-card-sub">La altura de la barra es el volumen contado ese día; el tramo ámbar es cuánto de eso tuvo diferencia</div>
           <div id="rep-chart-area" class="chart-wrap"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
         </div>
         <div>
@@ -593,13 +593,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       <div class="chart-card-title">SKUs con diferencia por categoría</div>
       <div id="rep-cat-chart-area" class="chart-wrap" style="margin-bottom:1rem"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
-      <div class="chart-card-title">Detalle por categoría</div>
+      <div class="chart-card-title">Detalle por categoría (top 10)</div>
+      <div class="chart-card-sub" style="margin-bottom:8px">Toca el nombre de una categoría para ver qué productos concentran más piezas faltantes</div>
       <div id="rep-cat-area"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
-
-      <div class="chart-card-title" style="margin-top:18px">Top productos con faltantes</div>
-      <div class="chart-card-sub" style="margin-bottom:8px">Elige una categoría para ver qué productos concentran más piezas faltantes (sumadas entre TRs)</div>
-      <div class="ctrl-field" style="max-width:280px;margin:0 0 10px"><label>Categoría</label><select id="rep-cat-drill" onchange="loadTopProductosCategoria()"><option value="">Selecciona una categoría…</option></select></div>
-      <div id="rep-cat-drill-area"></div>
 
       <div class="rep-section-head" style="margin-top:22px">
         <span class="rep-badge">5</span><span class="rep-section-title">Detalle de órdenes por TR</span>
@@ -1940,21 +1936,16 @@ function renderReportes(){
   const source=getReportesSource();
   const area=document.getElementById('rep-area');
   const statsBox=document.getElementById('rep-stats');
-  let fil=(tienda?source.filter(o=>o.tienda===tienda):source.slice()).filter(o=>o.contados>0).sort((a,b)=>a.tienda.localeCompare(b.tienda)||a.tr.localeCompare(b.tr));
+  const base=(tienda?source.filter(o=>o.tienda===tienda):source.slice());
+  let fil=base.filter(o=>o.contados>0).sort((a,b)=>a.tienda.localeCompare(b.tienda)||a.tr.localeCompare(b.tr));
   if(!fil.length){area.innerHTML='<div class="empty-state"><i class="ti ti-clipboard-off"></i>Sin órdenes con conteos registrados'+(document.getElementById('rep-sel-dia').value?' ese día':'')+'</div>';statsBox.innerHTML='';return;}
-  const cerradas=fil.filter(o=>o.cerrada);
-  // Dos lecturas de exactitud: una solo sobre lo que ya se cerró (avance "terminado"),
-  // y otra sobre todo lo contado hasta ahora, esté cerrado o no (avance "en vivo").
-  const pctPromCerradas=cerradas.length?Math.round(cerradas.reduce((s,o)=>s+(o.pctExactitud||0),0)/cerradas.length):null;
-  const pctPromContado=fil.length?Math.round(fil.reduce((s,o)=>s+(o.pctExactitud||0),0)/fil.length):null;
-  const durs=cerradas.filter(o=>o.duracionMin!==null&&o.duracionMin!==undefined);
-  const durProm=durs.length?Math.round(durs.reduce((s,o)=>s+o.duracionMin,0)/durs.length):null;
+  const pctProm=fil.length?Math.round(fil.reduce((s,o)=>s+(o.pctExactitud||0),0)/fil.length):null;
   const skusDif=fil.reduce((s,o)=>s+(o.diferencias||0),0);
   const sobrantes=fil.reduce((s,o)=>s+(o.sobrantes||0),0);
   const faltantes=fil.reduce((s,o)=>s+(o.faltantes||0),0);
   const ordenesConDif=fil.filter(o=>o.diferencias>0).length;
   const extras=fil.reduce((s,o)=>s+(o.extras||0),0);
-  statsBox.innerHTML=`<div class="stat"><div class="stat-n">${fil.length}</div><div class="stat-l">Órdenes</div></div><div class="stat"><div class="stat-n" style="color:var(--green)">${cerradas.length}</div><div class="stat-l">Cerradas</div></div><div class="stat"><div class="stat-n">${pctPromCerradas===null?'—':pctPromCerradas+'%'}</div><div class="stat-l">Exactitud (cerradas)</div></div><div class="stat"><div class="stat-n">${pctPromContado===null?'—':pctPromContado+'%'}</div><div class="stat-l">Exactitud (contado)</div></div><div class="stat"><div class="stat-n" style="color:var(--amber)">${skusDif}</div><div class="stat-l">SKUs con diferencia</div></div><div class="stat"><div class="stat-n" style="color:var(--amber)">${ordenesConDif}</div><div class="stat-l">Órdenes con diferencia</div></div><div class="stat"><div class="stat-n" style="color:var(--blue)">${sobrantes}</div><div class="stat-l">Sobrantes</div></div><div class="stat"><div class="stat-n" style="color:var(--red)">${faltantes}</div><div class="stat-l">Faltantes</div></div><div class="stat"><div class="stat-n" style="color:var(--text2)">${extras}</div><div class="stat-l">No precargados</div></div><div class="stat"><div class="stat-n">${durProm===null?'—':fmtMin(durProm)}</div><div class="stat-l">Cierre prom.</div></div>`;
+  statsBox.innerHTML=`<div class="stat"><div class="stat-n">${base.length}</div><div class="stat-l">Órdenes</div></div><div class="stat"><div class="stat-n" style="color:var(--green)">${fil.length}</div><div class="stat-l">Órdenes contadas</div></div><div class="stat"><div class="stat-n">${pctProm===null?'—':pctProm+'%'}</div><div class="stat-l">Exactitud</div></div><div class="stat"><div class="stat-n" style="color:var(--amber)">${skusDif}</div><div class="stat-l">SKUs con diferencia</div></div><div class="stat"><div class="stat-n" style="color:var(--amber)">${ordenesConDif}</div><div class="stat-l">Órdenes con diferencia</div></div><div class="stat"><div class="stat-n" style="color:var(--blue)">${sobrantes}</div><div class="stat-l">Sobrantes (SKUs)</div></div><div class="stat"><div class="stat-n" style="color:var(--red)">${faltantes}</div><div class="stat-l">Faltantes (SKUs)</div></div><div class="stat"><div class="stat-n" style="color:var(--text2)">${extras}</div><div class="stat-l">No precargados</div></div>`;
   let html='<div style="overflow-x:auto"><table class="users-table"><thead><tr><th>Tienda</th><th>TR</th><th>Estado</th><th>Avance</th><th>% Exactitud</th><th>SKUs c/ diferencia</th><th>Sobrantes</th><th>Faltantes</th><th>No precargados</th><th>Cerrada el</th><th>Tiempo de cierre</th></tr></thead><tbody>';
   fil.forEach(o=>{
     const estado=o.cerrada?`<span class="pill pill-exec">Cerrada</span>`:(o.vencida?`<span class="pill pill-vencida">Vencida</span>`:`<span class="pill pill-pend">Abierta</span>`);
@@ -2002,11 +1993,6 @@ async function loadProgresoDiario(){
     renderAccChart(d.data||[]);
   }catch{const msg='<div class="empty-state"><i class="ti ti-alert-circle"></i>Sin conexión</div>';chartArea.innerHTML=msg;accArea.innerHTML=msg;}
 }
-// Debajo de este total de conteos en el día, la barra se dibuja más tenue: al normalizar la
-// altura a 100% (composición, no volumen) un solo producto mal contado en un día muy chico se ve
-// tan "grave" como 50 mal contados en un día grande — la opacidad avisa que ahí hay poca muestra
-// y el % conviene tomarlo con cautela, sin volver a hacer que la barra se vea más chica.
-const MUESTRA_BAJA_UMBRAL = 10;
 function renderProgresoChart(data){
   const chartArea=document.getElementById('rep-chart-area');
   if(!data.length){chartArea.innerHTML='<div class="empty-state"><i class="ti ti-chart-bar"></i>Aún no hay conteos registrados</div>';return;}
@@ -2017,27 +2003,24 @@ function renderProgresoChart(data){
   const w=padL+plotW+padR, h=padT+plotH+padB;
   const bw=Math.min(30,step*0.55);
   const baseY=padT+plotH;
+  const maxTotal=Math.max(1,...data.map(d=>d.total));
   let bars='';
-  let hayMuestraBaja=false;
   data.forEach((dpt,i)=>{
     const x=padL+step*i+(step-bw)/2;
-    // Todas las barras a la misma altura (100% = composición del día), no al volumen —
-    // así un día con pocos conteos no se ve "chico" frente a uno con más; el total sigue
-    // visible en la etiqueta de arriba, solo dejó de ser lo que define la altura.
-    const difH=dpt.diferencias>0?Math.max(3,Math.round(plotH*(dpt.diferencias/dpt.total))):0;
-    const okH=plotH-difH;
+    // Altura proporcional al volumen real contado ese día (relativo al día con más actividad).
+    const barH=dpt.total>0?Math.max(3,Math.round(plotH*(dpt.total/maxTotal))):0;
+    const difH=dpt.diferencias>0?Math.max(2,Math.round(barH*(dpt.diferencias/dpt.total))):0;
+    const okH=barH-difH;
+    const topY=baseY-barH;
     const okTopY=baseY-okH;
-    const difTopY=baseY-plotH;
     const partes=dpt.dia.split('-');
     const fechaLbl=`${partes[2]}/${partes[1]}`;
     const labelTotal=dpt.diferencias>0?`${dpt.total} <tspan fill="var(--amber)" font-weight="600">(${dpt.diferencias})</tspan>`:`${dpt.total}`;
-    const muestraBaja=dpt.total<MUESTRA_BAJA_UMBRAL;
-    if(muestraBaja)hayMuestraBaja=true;
-    bars+=`<g${muestraBaja?' opacity="0.45"':''}>`;
-    bars+=`<title>${dpt.dia}: ${dpt.total} contados, ${dpt.diferencias} con diferencia${muestraBaja?' — muestra baja, tomar el % con cautela':''}</title>`;
-    if(okH>0)bars+=`<rect x="${x}" y="${okTopY}" width="${bw}" height="${okH}" rx="2" fill="var(--green)"${muestraBaja?' stroke="var(--text3)" stroke-dasharray="2,2"':''}/>`;
-    if(difH>0)bars+=`<rect x="${x}" y="${difTopY}" width="${bw}" height="${difH}" rx="2" fill="var(--amber)"${muestraBaja?' stroke="var(--text3)" stroke-dasharray="2,2"':''}/>`;
-    bars+=`<text x="${x+bw/2}" y="${difTopY-6}" text-anchor="middle" font-size="10.5" fill="var(--text2)">${labelTotal}</text>`;
+    bars+=`<g>`;
+    bars+=`<title>${dpt.dia}: ${dpt.total} contados, ${dpt.diferencias} con diferencia</title>`;
+    if(okH>0)bars+=`<rect x="${x}" y="${okTopY}" width="${bw}" height="${okH}" rx="2" fill="var(--green)"/>`;
+    if(difH>0)bars+=`<rect x="${x}" y="${topY}" width="${bw}" height="${difH}" rx="2" fill="var(--amber)"/>`;
+    bars+=`<text x="${x+bw/2}" y="${topY-6}" text-anchor="middle" font-size="10.5" fill="var(--text2)">${labelTotal}</text>`;
     bars+=`<text x="${x+bw/2}" y="${baseY+16}" text-anchor="middle" font-size="10" fill="var(--text3)">${fechaLbl}</text>`;
     bars+=`</g>`;
   });
@@ -2045,8 +2028,7 @@ function renderProgresoChart(data){
     <line x1="${padL}" y1="${baseY}" x2="${padL+plotW}" y2="${baseY}" stroke="var(--border)" stroke-width="1"/>
     ${bars}
   </svg>`;
-  const legendBaja=hayMuestraBaja?`<span class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--text3);opacity:.45"></span>Muestra baja (&lt;${MUESTRA_BAJA_UMBRAL} contados)</span>`:'';
-  chartArea.innerHTML=svg+`<div class="chart-legend"><span class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--green)"></span>Coincide</span><span class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--amber)"></span>Con diferencia</span>${legendBaja}</div>`;
+  chartArea.innerHTML=svg+`<div class="chart-legend"><span class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--green)"></span>Coincide</span><span class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--amber)"></span>Con diferencia</span></div>`;
 }
 
 // Gráfica de línea: % de exactitud por día (derivada de los mismos datos de progreso diario, sin llamada extra al backend)
@@ -2106,7 +2088,6 @@ async function loadCategorias(){
     repCatData=d.data||[];
     renderCategoriasChart(repCatData);
     renderCategoriasTable(repCatData);
-    poblarDropdownCategorias(repCatData);
   }catch{chartArea.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>Sin conexión</div>';}
 }
 function renderCategoriasChart(data){
@@ -2132,14 +2113,53 @@ function renderCategoriasChart(data){
 function renderCategoriasTable(data){
   const area=document.getElementById('rep-cat-area');
   if(!data.length){area.innerHTML='';return;}
+  const rows=data.slice(0,10);
   let html='<div style="overflow-x:auto"><table class="users-table"><thead><tr><th>Categoría</th><th>Contados</th><th>% Exactitud</th><th>SKUs c/ diferencia</th><th>Piezas dañadas</th></tr></thead><tbody>';
-  data.forEach(d=>{
+  rows.forEach((d,i)=>{
     const pct=d.pctExactitud===null?'—':`${d.pctExactitud}%`;
     const dif=d.diferencias>0?`<span style="color:var(--amber);font-weight:600">${d.diferencias}</span>`:'—';
-    html+=`<tr><td>${d.categoria}</td><td>${d.contados}</td><td>${pct}</td><td>${dif}</td><td>${d.danados||0}</td></tr>`;
+    html+=`<tr><td><span onclick="toggleCategoriaProductos(${i})" style="color:var(--blue);text-decoration:underline;cursor:pointer">${d.categoria}</span></td><td>${d.contados}</td><td>${pct}</td><td>${dif}</td><td>${d.danados||0}</td></tr>`;
+    html+=`<tr id="cat-drill-row-${i}" style="display:none"><td colspan="5" style="padding:0 0 12px"><div id="cat-drill-area-${i}"></div></td></tr>`;
   });
   html+='</tbody></table></div>';
   area.innerHTML=html;
+  catAbiertaIdx=-1;
+}
+// Drill-down inline: click en el nombre de una categoría (de las top 10 que muestra la tabla)
+// despliega, tipo dropdown, el top 10 de productos con más piezas faltantes de esa categoría.
+// Solo una categoría abierta a la vez — abrir otra cierra la anterior.
+let catAbiertaIdx=-1;
+async function toggleCategoriaProductos(idx){
+  const d=repCatData.slice(0,10)[idx];
+  if(!d)return;
+  if(catAbiertaIdx>=0 && catAbiertaIdx!==idx){
+    const prevRow=document.getElementById('cat-drill-row-'+catAbiertaIdx);
+    if(prevRow)prevRow.style.display='none';
+  }
+  const row=document.getElementById('cat-drill-row-'+idx);
+  const area=document.getElementById('cat-drill-area-'+idx);
+  if(!row)return;
+  if(row.style.display!=='none'){ row.style.display='none'; catAbiertaIdx=-1; return; }
+  row.style.display='table-row';
+  catAbiertaIdx=idx;
+  area.innerHTML='<div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div>';
+  const tienda=document.getElementById('rep-sel-store').value;
+  const dia=document.getElementById('rep-sel-dia').value;
+  try{
+    const r=await fetch(getUrl()+'?action=getTopProductosCategoria&categoria='+encodeURIComponent(d.categoria)+(tienda?'&tienda='+encodeURIComponent(tienda):'')+(dia?'&dia='+encodeURIComponent(dia):''));
+    const res=await r.json();
+    if(!res.ok){area.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>'+(res.error||'Error al cargar')+'</div>';return;}
+    const data=res.data||[];
+    if(!data.length){area.innerHTML='<div class="empty-state"><i class="ti ti-checks"></i>Sin conteos en esta categoría</div>';return;}
+    let html='<div style="overflow-x:auto;margin:2px 4px"><table class="users-table"><thead><tr><th>Producto</th><th>EAN</th><th>Contados</th><th>SKUs c/ diferencia</th><th>Piezas faltantes</th><th>Piezas sobrantes</th></tr></thead><tbody>';
+    data.forEach(o=>{
+      const falt=o.piezasFaltantes>0?`<span style="color:var(--red);font-weight:600">${o.piezasFaltantes}</span>`:'—';
+      const sob=o.piezasSobrantes>0?`<span style="color:var(--blue);font-weight:600">${o.piezasSobrantes}</span>`:'—';
+      html+=`<tr><td>${o.nombre||'—'}</td><td>${o.ean}</td><td>${o.contados}</td><td>${o.diferencias}</td><td>${falt}</td><td>${sob}</td></tr>`;
+    });
+    html+='</tbody></table></div>';
+    area.innerHTML=html;
+  }catch{area.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>Sin conexión</div>';}
 }
 function descargarCategoriasCSV(){
   if(!repCatData.length){toast('No hay datos para descargar');return;}
@@ -2155,41 +2175,6 @@ function descargarCategoriasCSV(){
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
-// Drill-down: top productos con más piezas faltantes dentro de una categoría (sección "Impacto
-// por categoría"). El dropdown solo lista categorías con diferencias (mismas que la tabla de
-// arriba); se repuebla cada vez que cambian los filtros de tienda/día, tratando de conservar la
-// selección si la categoría elegida sigue existiendo.
-function poblarDropdownCategorias(data){
-  const sel=document.getElementById('rep-cat-drill');
-  const prev=sel.value;
-  sel.innerHTML='<option value="">Selecciona una categoría…</option>'+data.map(d=>`<option value="${d.categoria.replace(/"/g,'&quot;')}">${d.categoria}</option>`).join('');
-  if(prev && data.some(d=>d.categoria===prev)){ sel.value=prev; loadTopProductosCategoria(); }
-  else{ document.getElementById('rep-cat-drill-area').innerHTML=''; }
-}
-async function loadTopProductosCategoria(){
-  const categoria=document.getElementById('rep-cat-drill').value;
-  const area=document.getElementById('rep-cat-drill-area');
-  if(!categoria){area.innerHTML='';return;}
-  area.innerHTML='<div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div>';
-  const tienda=document.getElementById('rep-sel-store').value;
-  const dia=document.getElementById('rep-sel-dia').value;
-  try{
-    const r=await fetch(getUrl()+'?action=getTopProductosCategoria&categoria='+encodeURIComponent(categoria)+(tienda?'&tienda='+encodeURIComponent(tienda):'')+(dia?'&dia='+encodeURIComponent(dia):''));
-    const d=await r.json();
-    if(!d.ok){area.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>'+(d.error||'Error al cargar')+'</div>';return;}
-    const data=d.data||[];
-    if(!data.length){area.innerHTML='<div class="empty-state"><i class="ti ti-checks"></i>Sin conteos en esta categoría</div>';return;}
-    let html='<div style="overflow-x:auto"><table class="users-table"><thead><tr><th>Producto</th><th>EAN</th><th>Contados</th><th>SKUs c/ diferencia</th><th>Piezas faltantes</th><th>Piezas sobrantes</th></tr></thead><tbody>';
-    data.forEach(o=>{
-      const falt=o.piezasFaltantes>0?`<span style="color:var(--red);font-weight:600">${o.piezasFaltantes}</span>`:'—';
-      const sob=o.piezasSobrantes>0?`<span style="color:var(--blue);font-weight:600">${o.piezasSobrantes}</span>`:'—';
-      html+=`<tr><td>${o.nombre||'—'}</td><td>${o.ean}</td><td>${o.contados}</td><td>${o.diferencias}</td><td>${falt}</td><td>${sob}</td></tr>`;
-    });
-    html+='</tbody></table></div>';
-    area.innerHTML=html;
-  }catch{area.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>Sin conexión</div>';}
-}
-
 // --- Comparativa por tienda: misma actividad de getEscanerResumen pero agrupada por tienda,
 // para comparar tiendas entre sí en vez de TRs individuales. Respeta el filtro de Día (no el
 // de Tienda, que no aplicaría — el objetivo es ver todas las tiendas a la vez). ---
@@ -2235,11 +2220,11 @@ function renderComparativaTable(data){
   const area=document.getElementById('rep-tiendas-area');
   if(!data.length){area.innerHTML='';return;}
   const rows=data.slice().sort((a,b)=>a.tienda.localeCompare(b.tienda));
-  let html='<div style="overflow-x:auto"><table class="users-table"><thead><tr><th>Tienda</th><th>TRs</th><th>Cerrados</th><th>Contados</th>'
+  let html='<div style="overflow-x:auto"><table class="users-table"><thead><tr><th>Tienda</th><th title="TRs de esta tienda con al menos 1 línea contada">TRs contados</th><th title="Líneas (TR+EAN) contadas — un mismo producto puede repetirse si viene en varios TRs">SKUs contados</th>'
     +'<th title="No incluye sobrantes, solo faltantes">% Exactitud</th><th title="% de líneas contadas con faltante">% SKUs c/ faltante</th><th title="% de TRs contados con al menos 1 faltante">% TRs c/ faltante</th>'
     +'<th>SKUs c/ diferencia</th><th>Sobrantes</th><th>Faltantes</th><th>No precargados</th>'
     +'<th title="Suma de Cantidad Precargada en las líneas contadas">Piezas precargadas</th><th title="Física + dañada, todo lo que llegó">Piezas recibidas</th><th title="Piezas faltantes ÷ piezas precargadas">% Piezas faltante</th>'
-    +'<th>Cierre prom.</th></tr></thead><tbody>';
+    +'</tr></thead><tbody>';
   rows.forEach(d=>{
     const pct=d.pctExactitud===null?'—':`${d.pctExactitud}%`;
     const pctSkuF=d.pctSkusFaltante===null?'—':`${d.pctSkusFaltante}%`;
@@ -2249,16 +2234,16 @@ function renderComparativaTable(data){
     const sob=d.sobrantes>0?`<span style="color:var(--blue);font-weight:600">${d.sobrantes}</span>`:'—';
     const falt=d.faltantes>0?`<span style="color:var(--red);font-weight:600">${d.faltantes}</span>`:'—';
     const ext=d.extras>0?`<span style="color:var(--text2);font-weight:600">${d.extras}</span>`:'—';
-    html+=`<tr><td>${d.tienda}</td><td>${d.trs}</td><td>${d.trsCerrados}</td><td>${d.contados}</td><td>${pct}</td><td>${pctSkuF}</td><td>${pctTrF}</td><td>${dif}</td><td>${sob}</td><td>${falt}</td><td>${ext}</td><td>${d.piezasPrecargadas}</td><td>${d.piezasRecibidas}</td><td>${pctPzF}</td><td>${fmtMin(d.duracionMinProm)}</td></tr>`;
+    html+=`<tr><td>${d.tienda}</td><td>${d.trsContados}</td><td>${d.contados}</td><td>${pct}</td><td>${pctSkuF}</td><td>${pctTrF}</td><td>${dif}</td><td>${sob}</td><td>${falt}</td><td>${ext}</td><td>${d.piezasPrecargadas}</td><td>${d.piezasRecibidas}</td><td>${pctPzF}</td></tr>`;
   });
   html+='</tbody></table></div>';
   area.innerHTML=html;
 }
 function descargarComparativaCSV(){
   if(!repTiendasData.length){toast('No hay datos para descargar');return;}
-  const headers=['Tienda','TRs','TRs cerrados','Contados','% Exactitud','% SKUs con faltante','% TRs con faltante','TRs con faltante','TRs contados','SKUs con diferencia','Sobrantes','Faltantes','No precargados','Piezas precargadas','Piezas recibidas','% Piezas faltante','Tiempo de cierre prom. (min)'];
+  const headers=['Tienda','TRs contados','SKUs contados','% Exactitud','% SKUs con faltante','% TRs con faltante','TRs con faltante','SKUs con diferencia','Sobrantes','Faltantes','No precargados','Piezas precargadas','Piezas recibidas','% Piezas faltante'];
   const csvEsc=v=>{const s=String(v===null||v===undefined?'':v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
-  const rows=repTiendasData.slice().sort((a,b)=>a.tienda.localeCompare(b.tienda)).map(d=>[d.tienda,d.trs,d.trsCerrados,d.contados,d.pctExactitud===null?'':d.pctExactitud,d.pctSkusFaltante===null?'':d.pctSkusFaltante,d.pctTrsConFaltante===null?'':d.pctTrsConFaltante,d.trsConFaltante,d.trsContados,d.diferencias,d.sobrantes,d.faltantes,d.extras,d.piezasPrecargadas,d.piezasRecibidas,d.pctPiezasFaltante===null?'':d.pctPiezasFaltante,d.duracionMinProm===null||d.duracionMinProm===undefined?'':d.duracionMinProm]);
+  const rows=repTiendasData.slice().sort((a,b)=>a.tienda.localeCompare(b.tienda)).map(d=>[d.tienda,d.trsContados,d.contados,d.pctExactitud===null?'':d.pctExactitud,d.pctSkusFaltante===null?'':d.pctSkusFaltante,d.pctTrsConFaltante===null?'':d.pctTrsConFaltante,d.trsConFaltante,d.diferencias,d.sobrantes,d.faltantes,d.extras,d.piezasPrecargadas,d.piezasRecibidas,d.pctPiezasFaltante===null?'':d.pctPiezasFaltante]);
   const csv='\uFEFF'+[headers,...rows].map(r=>r.map(csvEsc).join(',')).join('\r\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
