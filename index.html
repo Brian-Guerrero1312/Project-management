@@ -488,6 +488,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
         <div class="rep-section-title" style="margin-bottom:8px">Avance por TR</div>
         <div id="escaner-resumen-area"><div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div></div>
+
+        <div class="rep-section-head" style="justify-content:space-between;margin-top:26px">
+          <div style="display:flex;align-items:center;gap:8px"><span class="rep-badge" style="background:var(--blue)"><i class="ti ti-search" style="font-size:12px"></i></span><span class="rep-section-title">Posibles coincidencias EAN (sobrantes)</span></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn-ghost" onclick="loadSugerenciasSobrantes()"><i class="ti ti-refresh"></i> Ver / actualizar</button>
+            <button class="btn-ghost" onclick="descargarSugerenciasCSV()"><i class="ti ti-download"></i> Descargar CSV</button>
+          </div>
+        </div>
+        <div class="chart-card-sub" style="margin-bottom:8px">Sobrantes cuyo EAN se parece mucho al de un producto sin contar de la Precarga del mismo TR — probable error de lectura del código de barras. Solo es sugerencia, no corrige nada por sí sola: revisa y corrige manualmente si aplica.</div>
+        <div id="sugerencias-sobrantes-area"><div class="empty-state"><i class="ti ti-search"></i>Toca "Ver / actualizar" para revisar</div></div>
       </div>
     </div>
   </div>
@@ -1036,7 +1046,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const K_SESSION='wms_session',K_COUNTS='wms_counts',K_CONFIG='wms_config';
 const K_SESSION_SC='wms_session_scanner';
 const MODO=new URLSearchParams(location.search).get('modulo')==='escaner'?'escaner':'main';
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxu25bfBKcMYAP5XTvshFthjhOM1JXoyd3yeChhvrX6HJ3A4_EeUZgcSaWawcFMBjx-Yg/exec';
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbytuwCWArO6GoqplrqN3T5iDeP5fmh02ABDOjqAIf8gRRAx78ASMh6aDdfD1SCMR1LAGQ/exec';
 let session=null,storeData={},counts={},curProd=null,closedStores={},activeFilter='all',syncInterval=null,lastSync=null;
 let scSession=null,scTiendaMap={},scPrecarga=[],scConteos={},scOrdenCerrada=false,scCurrentTR=null,scCurrentTienda=null,scFilter='all',scSyncInterval=null;
 function goToScannerModule(){showScreen('scr-login-scanner');}
@@ -2748,6 +2758,55 @@ async function reconciliarSobrantes(){
     toast(`Listo: ${d.reclasificados} fila(s) reclasificada(s) de ${d.revisados} sobrantes revisados`);
     loadEscanerResumen();
   }catch{toast('Sin conexión');}
+}
+
+// --- Posibles coincidencias EAN: sugerencia de solo lectura, no corrige nada por sí sola ---
+let sugerenciasSobrantesData=[];
+async function loadSugerenciasSobrantes(){
+  const area=document.getElementById('sugerencias-sobrantes-area');
+  area.innerHTML='<div class="empty-state"><i class="ti ti-loader-2 spin"></i>Buscando coincidencias...</div>';
+  try{
+    const tienda=document.getElementById('esc-sel-store').value||'';
+    const params=new URLSearchParams({action:'getSugerenciasSobrantes'});
+    if(tienda)params.set('tienda',tienda);
+    const r=await fetch(`${getUrl()}?${params.toString()}`);
+    const d=await r.json();
+    if(!d.ok){area.innerHTML=`<div class="empty-state">${d.error||'Error al buscar coincidencias'}</div>`;return;}
+    sugerenciasSobrantesData=d.data||[];
+    renderSugerenciasSobrantes();
+  }catch{area.innerHTML='<div class="empty-state">Sin conexión</div>';}
+}
+function renderSugerenciasSobrantes(){
+  const area=document.getElementById('sugerencias-sobrantes-area');
+  if(!sugerenciasSobrantesData.length){area.innerHTML='<div class="empty-state"><i class="ti ti-circle-check"></i>Sin coincidencias sospechosas por ahora</div>';return;}
+  let html='<div style="overflow-x:auto"><table class="users-table"><thead><tr><th>Tienda</th><th>TR</th><th>EAN registrado (sobrante)</th><th>Nombre registrado</th><th>Cant.</th><th>Posible producto real (en Precarga del mismo TR)</th></tr></thead><tbody>';
+  sugerenciasSobrantesData.forEach(s=>{
+    const cand=s.candidatos.map(c=>`<div style="margin-bottom:4px"><strong>${c.ean}</strong> — ${c.nombre||'(sin nombre)'} <span style="color:var(--text3)">(${c.distancia} car. distinto${c.distancia>1?'s':''}${c.yaContado?', ya contado':''})</span></div>`).join('');
+    const cant=(Number(s.cantidad_fisica)||0)+(Number(s.cantidad_danada)||0);
+    html+=`<tr><td>${s.tienda}</td><td><strong>${s.tr}</strong></td><td>${s.ean}</td><td>${s.nombre||''}</td><td>${cant}</td><td>${cand}</td></tr>`;
+  });
+  html+='</tbody></table></div>';
+  area.innerHTML=html;
+}
+function descargarSugerenciasCSV(){
+  if(!sugerenciasSobrantesData.length){toast('No hay datos para descargar');return;}
+  const headers=['Tienda','TR','EAN sobrante','Nombre sobrante','Cantidad','EAN candidato','Nombre candidato','Distancia','Ya contado'];
+  const csvEsc=v=>{const s=String(v===null||v===undefined?'':v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  const rows=[];
+  sugerenciasSobrantesData.forEach(s=>{
+    const cant=(Number(s.cantidad_fisica)||0)+(Number(s.cantidad_danada)||0);
+    s.candidatos.forEach(c=>{
+      rows.push([s.tienda,s.tr,s.ean,s.nombre||'',cant,c.ean,c.nombre||'',c.distancia,c.yaContado?'Sí':'No']);
+    });
+  });
+  const csv='\uFEFF'+[headers,...rows].map(r=>r.map(csvEsc).join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const fecha=new Date().toISOString().slice(0,10);
+  a.href=url;a.download=`sugerencias_sobrantes_${fecha}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ============================================================
