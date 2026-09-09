@@ -481,6 +481,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <div class="ctrl-field" style="flex:1;min-width:160px;margin:0"><label>Tienda</label><select id="esc-sel-store" onchange="renderEscanerResumen()"><option value="">Todas las tiendas</option></select></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn-ghost" onclick="recalcularContraPrecarga()" title="Si corregiste cantidades en Precarga después de que ya contaron, esto vuelve a comparar los conteos guardados contra la Precarga actual"><i class="ti ti-refresh-alert"></i> Recalcular contra Precarga</button>
+            <button class="btn-ghost" onclick="recalcularCategorias()" title="Rellena la columna Categoría de ConteosEscaner cruzando por EAN contra la hoja Catalogo — para conteos guardados antes de que esto se hiciera automático, o si el catálogo cambió"><i class="ti ti-category"></i> Recalcular categorías</button>
             <button class="btn-ghost" onclick="loadEscanerResumen()"><i class="ti ti-refresh"></i> Actualizar</button>
           </div>
         </div>
@@ -1034,7 +1035,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const K_SESSION='wms_session',K_COUNTS='wms_counts',K_CONFIG='wms_config';
 const K_SESSION_SC='wms_session_scanner';
 const MODO=new URLSearchParams(location.search).get('modulo')==='escaner'?'escaner':'main';
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbwJnzuQbSbwhsFzZCJhHU6vpqBuxl8a1q0AgYixcIzAUATpTwIR5VHZt9i3pK0cJXXzvQ/exec';
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbw7-rOlfcJiu_fjeOpjP9wu8bIAfEe7sOffJCsWuHHYKjBWYXEj9e1CTlxqvZdVQpm9Wg/exec';
 let session=null,storeData={},counts={},curProd=null,closedStores={},activeFilter='all',syncInterval=null,lastSync=null;
 let scSession=null,scTiendaMap={},scPrecarga=[],scConteos={},scOrdenCerrada=false,scCurrentTR=null,scCurrentTienda=null,scFilter='all',scSyncInterval=null;
 function goToScannerModule(){showScreen('scr-login-scanner');}
@@ -2715,6 +2716,17 @@ async function recalcularContraPrecarga(){
     if(!d.ok){toast(d.error||'Error al recalcular');return;}
     toast(`Listo: ${d.actualizados} conteo(s) corregido(s) de ${d.revisados} revisados${d.sinPrecarga?` (${d.sinPrecarga} sin precarga)`:''}`);
     loadEscanerResumen();
+  }catch{toast('Sin conexión');}
+}
+async function recalcularCategorias(){
+  if(!confirm('Esto rellena la columna Categoría de ConteosEscaner cruzando cada EAN contra la hoja Catalogo (columna C = EAN, columna E = Categoría). No toca ninguna otra columna. ¿Continuar?'))return;
+  toast('Recalculando categorías...');
+  try{
+    const params=new URLSearchParams({action:'recalcularCategorias'});
+    const r=await fetch(getUrl(),{method:'POST',body:params});
+    const d=await r.json();
+    if(!d.ok){toast(d.error||'Error al recalcular');return;}
+    toast(`Listo: ${d.actualizados} fila(s) actualizada(s) de ${d.revisados} revisadas${d.sinCatalogo?` (${d.sinCatalogo} sin match en Catalogo)`:''}`);
   }catch{toast('Sin conexión');}
 }
 
