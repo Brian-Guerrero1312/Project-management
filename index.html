@@ -482,6 +482,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn-ghost" onclick="recalcularContraPrecarga()" title="Si corregiste cantidades en Precarga después de que ya contaron, esto vuelve a comparar los conteos guardados contra la Precarga actual"><i class="ti ti-refresh-alert"></i> Recalcular contra Precarga</button>
             <button class="btn-ghost" onclick="recalcularCategorias()" title="Rellena la columna Categoría de ConteosEscaner cruzando por EAN contra la hoja Catalogo — para conteos guardados antes de que esto se hiciera automático, o si el catálogo cambió"><i class="ti ti-category"></i> Recalcular categorías</button>
+            <button class="btn-ghost" onclick="reconciliarSobrantes()" title="Revisa los conteos marcados como 'sobrante no precargado' y los reclasifica si en realidad sí estaban en la Precarga (p.ej. por un EAN con formato distinto)"><i class="ti ti-transfer-in"></i> Reconciliar sobrantes</button>
             <button class="btn-ghost" onclick="loadEscanerResumen()"><i class="ti ti-refresh"></i> Actualizar</button>
           </div>
         </div>
@@ -1035,7 +1036,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const K_SESSION='wms_session',K_COUNTS='wms_counts',K_CONFIG='wms_config';
 const K_SESSION_SC='wms_session_scanner';
 const MODO=new URLSearchParams(location.search).get('modulo')==='escaner'?'escaner':'main';
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbw7-rOlfcJiu_fjeOpjP9wu8bIAfEe7sOffJCsWuHHYKjBWYXEj9e1CTlxqvZdVQpm9Wg/exec';
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxu25bfBKcMYAP5XTvshFthjhOM1JXoyd3yeChhvrX6HJ3A4_EeUZgcSaWawcFMBjx-Yg/exec';
 let session=null,storeData={},counts={},curProd=null,closedStores={},activeFilter='all',syncInterval=null,lastSync=null;
 let scSession=null,scTiendaMap={},scPrecarga=[],scConteos={},scOrdenCerrada=false,scCurrentTR=null,scCurrentTienda=null,scFilter='all',scSyncInterval=null;
 function goToScannerModule(){showScreen('scr-login-scanner');}
@@ -2608,14 +2609,21 @@ async function closeScannerModal(e){
     try{await inst.clear();}catch(e){}
   }
 }
+// Compara EAN tolerando ceros a la izquierda perdidos (p.ej. si en Precarga el EAN se guardó como
+// número) — mismo criterio que usa el backend (ver eanEquals_ en el script). Sin esto, un producto
+// que sí estaba precargado podía ofrecerse como "sobrante" solo por esa diferencia de formato.
+function eanEquals(a,b){
+  const sa=String(a||'').replace(/^0+(?=\d)/,''),sb=String(b||'').replace(/^0+(?=\d)/,'');
+  return sa!==''&&sa===sb;
+}
 function onScanDecoded(decodedText){
   const ean=String(decodedText).trim();
   closeScannerModal();
-  const p=scPrecarga.find(x=>x.ean===ean);
+  const p=scPrecarga.find(x=>eanEquals(x.ean,ean));
   // Si el EAN no está en la precarga de este TR, ya no se pierde el hallazgo: se ofrece
   // registrarlo directo como producto sobrante no precargado.
   if(!p){abrirModalExtra(ean);return;}
-  openCountModal(ean);
+  openCountModal(p.ean);
 }
 
 // --- Producto sobrante no precargado: se encontró físicamente pero no estaba en la lista del TR ---
@@ -2640,7 +2648,7 @@ async function submitExtraCount(){
   const val=document.getElementById('sc-extra-input').value;
   const valDan=document.getElementById('sc-extra-danado').value;
   if(!ean){toast('Ingresa el EAN del producto');return;}
-  if(scPrecarga.some(x=>x.ean===ean)){toast('Este EAN sí está en la precarga — regístralo desde la lista normal');return;}
+  if(scPrecarga.some(x=>eanEquals(x.ean,ean))){toast('Este EAN sí está en la precarga — regístralo desde la lista normal');return;}
   const cantidad=Number(val)||0,danado=Number(valDan)||0;
   if(cantidad<0||danado<0){toast('Las cantidades no pueden ser negativas');return;}
   if(cantidad+danado<=0){toast('Ingresa una cantidad mayor a 0');return;}
@@ -2727,6 +2735,18 @@ async function recalcularCategorias(){
     const d=await r.json();
     if(!d.ok){toast(d.error||'Error al recalcular');return;}
     toast(`Listo: ${d.actualizados} fila(s) actualizada(s) de ${d.revisados} revisadas${d.sinCatalogo?` (${d.sinCatalogo} sin match en Catalogo)`:''}`);
+  }catch{toast('Sin conexión');}
+}
+async function reconciliarSobrantes(){
+  if(!confirm('Esto revisa cada conteo marcado como "sobrante no precargado" y, si ahora sí encuentra su línea en la Precarga (comparando el EAN sin importar ceros a la izquierda), lo reclasifica como conteo normal: corrige Precargado, Cantidad Precargada, Coincide, Diferencia y el Nombre si seguía genérico. Los sobrantes reales (que de verdad no están en Precarga) no se tocan. ¿Continuar?'))return;
+  toast('Reconciliando sobrantes...');
+  try{
+    const params=new URLSearchParams({action:'reconciliarSobrantes'});
+    const r=await fetch(getUrl(),{method:'POST',body:params});
+    const d=await r.json();
+    if(!d.ok){toast(d.error||'Error al reconciliar');return;}
+    toast(`Listo: ${d.reclasificados} fila(s) reclasificada(s) de ${d.revisados} sobrantes revisados`);
+    loadEscanerResumen();
   }catch{toast('Sin conexión');}
 }
 
