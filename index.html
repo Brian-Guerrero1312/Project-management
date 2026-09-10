@@ -451,6 +451,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <button class="btn-ghost" onclick="resetConteosAdmin()" style="flex:1;color:var(--amber);border-color:var(--amber-b)"><i class="ti ti-refresh-alert"></i> Reiniciar conteos</button>
           <button id="btn-close-inv" class="btn-ghost" onclick="toggleCloseInventory()" style="flex:1;color:var(--red);border-color:var(--red-b)"><i class="ti ti-lock"></i> Cerrar inventario</button>
         </div>
+        <button class="btn-ghost" onclick="migrarConteosAHistorial()" style="width:100%;margin-top:8px" title="Revisa Conteos y agrega a Historial_Diario los conteos que falten ahí — para recuperar conteos que se perdieron por el bug de condición de carrera ya corregido en saveCount"><i class="ti ti-transfer-in"></i> Recuperar conteos faltantes en Historial_Diario</button>
       </div>
       <div id="tab-productividad" class="admin-section">
         <div class="controls">
@@ -1046,7 +1047,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const K_SESSION='wms_session',K_COUNTS='wms_counts',K_CONFIG='wms_config';
 const K_SESSION_SC='wms_session_scanner';
 const MODO=new URLSearchParams(location.search).get('modulo')==='escaner'?'escaner':'main';
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbytuwCWArO6GoqplrqN3T5iDeP5fmh02ABDOjqAIf8gRRAx78ASMh6aDdfD1SCMR1LAGQ/exec';
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbzvZFFZRzkZ5qA3roGqgmB8EIi8NA5YfOxkDBwQZhGzulsiYWkoHcBGRusFBNNOz-jAxQ/exec';
 let session=null,storeData={},counts={},curProd=null,closedStores={},activeFilter='all',syncInterval=null,lastSync=null;
 let scSession=null,scTiendaMap={},scPrecarga=[],scConteos={},scOrdenCerrada=false,scCurrentTR=null,scCurrentTienda=null,scFilter='all',scSyncInterval=null;
 function goToScannerModule(){showScreen('scr-login-scanner');}
@@ -2745,6 +2746,17 @@ async function recalcularCategorias(){
     const d=await r.json();
     if(!d.ok){toast(d.error||'Error al recalcular');return;}
     toast(`Listo: ${d.actualizados} fila(s) actualizada(s) de ${d.revisados} revisadas${d.sinCatalogo?` (${d.sinCatalogo} sin match en Catalogo)`:''}`);
+  }catch{toast('Sin conexión');}
+}
+async function migrarConteosAHistorial(){
+  if(!confirm('Esto revisa "Conteos" (que solo guarda el conteo más reciente de cada producto) y agrega a Historial_Diario los que falten ahí, sin duplicar ni tocar los que ya existen. Ojo: solo puede recuperar lo que sigue vigente en Conteos ahora mismo — si un producto se volvió a contar después y se sobrescribió, ese conteo anterior ya no se puede recuperar. ¿Continuar?'))return;
+  toast('Revisando Conteos...');
+  try{
+    const params=new URLSearchParams({action:'migrarConteosAHistorial'});
+    const r=await fetch(getUrl(),{method:'POST',body:params});
+    const d=await r.json();
+    if(!d.ok){toast(d.error||'Error al migrar');return;}
+    toast(`Listo: ${d.agregados} conteo(s) agregado(s) a Historial_Diario de ${d.revisados} revisados`);
   }catch{toast('Sin conexión');}
 }
 async function reconciliarSobrantes(){
