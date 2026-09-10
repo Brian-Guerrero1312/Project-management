@@ -757,7 +757,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <div class="manual-step-icon" style="background:var(--red-bg);color:var(--red)"><i class="ti ti-lock"></i></div>
           <div class="manual-step-body">
             <div class="manual-step-title">Cierra la orden</div>
-            <div class="manual-step-desc">Cuando termines de contar todos los productos de la TR, toca <b>"Cerrar orden"</b>. Una vez cerrada, ya no se puede modificar el conteo desde el escáner.</div>
+            <div class="manual-step-desc">Cuando termines de contar todos los productos de la TR, toca <b>"Cerrar orden"</b>. Si quedó algún producto con diferencia (o algún sobrante no precargado), primero te va a pedir revisarlos uno por uno marcando su casilla — cuando todos estén marcados, se habilita el botón para cerrar. Una vez cerrada, ya no se puede modificar el conteo desde el escáner.</div>
           </div>
         </div>
       </div>
@@ -992,6 +992,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+<!-- MODAL: REVALIDAR DIFERENCIAS ANTES DE CERRAR LA ORDEN -->
+<div id="modal-revalidar-overlay" class="modal-overlay">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:460px">
+    <div class="modal-head">
+      <div class="modal-title">Revalida las diferencias antes de cerrar</div>
+      <div class="modal-ean" style="font-size:11px;color:var(--text3);margin-top:-4px">Marca cada producto como revisado. Cuando todos estén marcados podrás cerrar la orden.</div>
+    </div>
+    <div class="modal-body">
+      <div id="reval-list" style="max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="mbtn mbtn-cancel" onclick="closeRevalidarModal()">Cancelar</button>
+      <button class="mbtn mbtn-ok" id="reval-btn-confirmar" onclick="confirmarCierreConRevalidacion()" disabled style="opacity:.5"><i class="ti ti-lock"></i> Cerrar orden</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: PRODUCTO SOBRANTE (encontrado físicamente pero que NO está en la Precarga del TR) -->
 <div id="modal-extra-overlay" class="modal-overlay" onclick="closeExtraModal(event)">
   <div class="modal" onclick="event.stopPropagation()" style="max-width:420px">
@@ -1047,7 +1064,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const K_SESSION='wms_session',K_COUNTS='wms_counts',K_CONFIG='wms_config';
 const K_SESSION_SC='wms_session_scanner';
 const MODO=new URLSearchParams(location.search).get('modulo')==='escaner'?'escaner':'main';
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbwxbVc3NxhWO3l3O9hP8Sd_Ksv5Cub1suwVN5VyZGlV8o45nFXRStUsQqV_wSpF7L-D6g/exec';
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbzZHlejbOcueTv-ya6VI6kkEvqdhRMUNMUryvq_v_3JhI4-W8yNpMM-j0uxQ0awEXm_Jw/exec';
 let session=null,storeData={},counts={},curProd=null,closedStores={},activeFilter='all',syncInterval=null,lastSync=null;
 let scSession=null,scTiendaMap={},scPrecarga=[],scConteos={},scOrdenCerrada=false,scCurrentTR=null,scCurrentTienda=null,scFilter='all',scSyncInterval=null;
 function goToScannerModule(){showScreen('scr-login-scanner');}
@@ -2168,14 +2185,63 @@ async function doSaveScanCount(cantidad,danado,confirmado){
 async function closeOrdenClient(){
   const pendientes=scPrecarga.filter(p=>!scConteos[p.ean]).length;
   if(pendientes>0){toast(`Aún hay ${pendientes} producto(s) pendientes`);return;}
+  // Antes de cerrar, si quedó algún producto con diferencia (incluye sobrantes no precargados,
+  // que por definición siempre tienen diferencia), el equipo tiene que revisarlos uno por uno en
+  // la pantalla de revalidación — no se deja cerrar directo como con una orden sin diferencias.
+  const conDiferencia=Object.values(scConteos).filter(c=>!c.coincide);
+  if(conDiferencia.length>0){openRevalidarModal(conDiferencia);return;}
   if(!confirm(`¿Cerrar la orden del TR ${scCurrentTR}? Ya no podrás editar los conteos.`))return;
+  await doCloseOrden([]);
+}
+
+async function doCloseOrden(revalidados){
+  toast('Cerrando...');
   try{
-    const params=new URLSearchParams({action:'closeOrden',tr:scCurrentTR,tienda:scCurrentTienda,usuario:scSession.name});
+    const params=new URLSearchParams({action:'closeOrden',tr:scCurrentTR,tienda:scCurrentTienda,usuario:scSession.name,revalidados:(revalidados||[]).join(',')});
     const r=await fetch(getUrl(),{method:'POST',body:params});
     const d=await r.json();
     if(d.ok){scOrdenCerrada=true;renderScanList();toast('Orden cerrada ✓');}
     else toast('Error: '+d.error);
   }catch{toast('Sin conexión');}
+}
+
+// --- Revalidación de diferencias antes de cerrar (checkbox por producto) ---
+let scRevalidados={};
+function openRevalidarModal(conDiferencia){
+  scRevalidados={};
+  const list=document.getElementById('reval-list');
+  list.innerHTML=conDiferencia.map(c=>{
+    const danadoTxt=c.cantidad_danada>0?` (+${c.cantidad_danada} dañado)`:'';
+    const etiqueta=c.precargado===false?'Sobrante no precargado':'Con diferencia';
+    return `<label style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--amber-bg);border-radius:var(--r);cursor:pointer">
+      <input type="checkbox" onchange="toggleRevalidado('${c.ean}',this.checked,${conDiferencia.length})" style="width:18px;height:18px;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600">${c.nombre||'(sin nombre)'}</div>
+        <div style="font-size:11px;color:var(--text3)">${c.ean} · contaste ${c.cantidad_fisica}${danadoTxt} · ${etiqueta}</div>
+      </div>
+      <i class="ti ti-alert-triangle" style="color:var(--amber)"></i>
+    </label>`;
+  }).join('');
+  updateRevalidarBtn(conDiferencia.length);
+  document.getElementById('modal-revalidar-overlay').classList.add('open');
+}
+function toggleRevalidado(ean,checked,total){
+  if(checked)scRevalidados[ean]=true; else delete scRevalidados[ean];
+  updateRevalidarBtn(total);
+}
+function updateRevalidarBtn(total){
+  const btn=document.getElementById('reval-btn-confirmar');
+  const marcados=Object.keys(scRevalidados).length;
+  const listo=total>0&&marcados>=total;
+  btn.disabled=!listo;
+  btn.style.opacity=listo?'1':'.5';
+  btn.innerHTML=listo?`<i class="ti ti-lock"></i> Cerrar orden`:`<i class="ti ti-lock"></i> Cerrar orden (${marcados}/${total} revisados)`;
+}
+function closeRevalidarModal(){document.getElementById('modal-revalidar-overlay').classList.remove('open');}
+async function confirmarCierreConRevalidacion(){
+  const eans=Object.keys(scRevalidados);
+  closeRevalidarModal();
+  await doCloseOrden(eans);
 }
 
 // --- Reportes: exactitud, SKUs con diferencia, tiempos de cierre y progreso diario (visible para contador y auditor) ---
