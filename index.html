@@ -1069,7 +1069,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const K_SESSION='wms_session',K_COUNTS='wms_counts',K_CONFIG='wms_config';
 const K_SESSION_SC='wms_session_scanner';
 const MODO=new URLSearchParams(location.search).get('modulo')==='escaner'?'escaner':'main';
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxAQ47uhjuSnnsbz1NyPa-bLlUsr90YInwuU2qrwc0XJ7GjznrePLOUU8IOs5b2fHd5FQ/exec';
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbzU84k9jtGKb3vmkZXW_oYMPzl3JieOcsfRCqK8Cbz5epOj6Ux_b7HxWstq6T39LHCv7A/exec';
 let session=null,storeData={},counts={},curProd=null,closedStores={},activeFilter='all',syncInterval=null,lastSync=null;
 let scSession=null,scTiendaMap={},scPrecarga=[],scConteos={},scOrdenCerrada=false,scCurrentTR=null,scCurrentTienda=null,scFilter='all',scSyncInterval=null;
 let syncingConteos=false,openCats=new Set();
@@ -1209,29 +1209,40 @@ async function checkCheckinStatus(){
   }
 }
 
-async function loadCheckinStores(){
+async function loadCheckinStores(retryCount){
+  retryCount=retryCount||0;
   // Cargar tiendas disponibles desde productos
+  const err=document.getElementById('checkin-err');
   try{
-    const r=await fetch(getUrl()+'?action=getProducts&t='+Date.now());
+    const r=await fetchConTimeout(getUrl()+'?action=getProducts&t='+Date.now(),{},20000);
     const d=await r.json();
-    if(d.ok){
-      storeData={};
-      d.data.forEach(row=>{
-        const tienda=row.tienda,categoria=row.categoria,nombre=row.nombre,imagen=row.imagen,wh_id=row.wh_id;
-        const ean=row.ean!==null&&row.ean!==undefined?String(row.ean):'';
-        if(!tienda||!ean)return;
-        const prioridad=String(row.prioridad||'').trim().toLowerCase()==='si';
-        if(!storeData[tienda])storeData[tienda]={name:tienda,categories:{}};
-        if(!storeData[tienda].categories[categoria])storeData[tienda].categories[categoria]=[];
-        storeData[tienda].categories[categoria].push({ean,name:nombre,img:imagen||'',wh_id:wh_id||'',prioridad});
-      });
-      const sel=document.getElementById('checkin-store');
-      sel.innerHTML='<option value="">— Seleccionar tienda —</option>';
-      Object.keys(storeData).forEach(id=>{
-        const o=document.createElement('option');o.value=id;o.textContent=id;sel.appendChild(o);
-      });
+    if(!d.ok) throw new Error(d.error||'Error al cargar tiendas');
+    storeData={};
+    d.data.forEach(row=>{
+      const tienda=row.tienda,categoria=row.categoria,nombre=row.nombre,imagen=row.imagen,wh_id=row.wh_id;
+      const ean=row.ean!==null&&row.ean!==undefined?String(row.ean):'';
+      if(!tienda||!ean)return;
+      const prioridad=String(row.prioridad||'').trim().toLowerCase()==='si';
+      if(!storeData[tienda])storeData[tienda]={name:tienda,categories:{}};
+      if(!storeData[tienda].categories[categoria])storeData[tienda].categories[categoria]=[];
+      storeData[tienda].categories[categoria].push({ean,name:nombre,img:imagen||'',wh_id:wh_id||'',prioridad});
+    });
+    const sel=document.getElementById('checkin-store');
+    sel.innerHTML='<option value="">— Seleccionar tienda —</option>';
+    Object.keys(storeData).forEach(id=>{
+      const o=document.createElement('option');o.value=id;o.textContent=id;sel.appendChild(o);
+    });
+    if(err)err.style.display='none';
+  }catch(ex){
+    if(retryCount<2){
+      setTimeout(()=>loadCheckinStores(retryCount+1),2500);
+      return;
     }
-  }catch{}
+    if(err){
+      err.innerHTML='No se pudo cargar el listado de tiendas. <button class="btn-sm" onclick="loadCheckinStores()">Reintentar</button>';
+      err.style.display='block';
+    }
+  }
 }
 
 async function doCheckin(){
@@ -1443,35 +1454,42 @@ function startAutoSync(){
 }
 function stopAutoSync(){if(syncInterval)clearInterval(syncInterval);syncInterval=null;}
 
-async function loadProducts(){
+async function loadProducts(retryCount){
+  retryCount=retryCount||0;
   const isAdmin=session?.rol==='admin';
   const areaId=isAdmin?'adm-product-area':'product-area';
   document.getElementById(areaId).innerHTML='<div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div>';
   try{
-    const r=await fetch(getUrl()+'?action=getProducts&t='+Date.now());
+    const r=await fetchConTimeout(getUrl()+'?action=getProducts&t='+Date.now(),{},20000);
     const d=await r.json();
-    if(d.ok){
-      storeData={};
-      d.data.forEach(row=>{
-        const tienda=row.tienda,categoria=row.categoria,nombre=row.nombre,imagen=row.imagen,wh_id=row.wh_id;
-        // EAN puede venir como número — convertir siempre a string
-        const ean=row.ean!==null&&row.ean!==undefined?String(row.ean):'';
-        if(!tienda||!ean)return;
-        const prioridad=String(row.prioridad||'').trim().toLowerCase()==='si';
-        if(!storeData[tienda])storeData[tienda]={name:tienda,categories:{}};
-        if(!storeData[tienda].categories[categoria])storeData[tienda].categories[categoria]=[];
-        storeData[tienda].categories[categoria].push({ean,name:nombre,img:imagen||'',wh_id:wh_id||'',prioridad});
-      });
-      populateStores();render();toast('Productos cargados ✓');
-      if(session?.rol!=='admin'&&session?.tienda){
-        const sel=document.getElementById('sel-store');
-        if(sel&&sel.value){
-          document.getElementById('exec-filters').style.display='flex';
-          await syncConteos(sel.value,false);
-        }
+    if(!d.ok) throw new Error(d.error||'Error al cargar productos');
+    storeData={};
+    d.data.forEach(row=>{
+      const tienda=row.tienda,categoria=row.categoria,nombre=row.nombre,imagen=row.imagen,wh_id=row.wh_id;
+      // EAN puede venir como número — convertir siempre a string
+      const ean=row.ean!==null&&row.ean!==undefined?String(row.ean):'';
+      if(!tienda||!ean)return;
+      const prioridad=String(row.prioridad||'').trim().toLowerCase()==='si';
+      if(!storeData[tienda])storeData[tienda]={name:tienda,categories:{}};
+      if(!storeData[tienda].categories[categoria])storeData[tienda].categories[categoria]=[];
+      storeData[tienda].categories[categoria].push({ean,name:nombre,img:imagen||'',wh_id:wh_id||'',prioridad});
+    });
+    populateStores();render();toast('Productos cargados ✓');
+    if(session?.rol!=='admin'&&session?.tienda){
+      const sel=document.getElementById('sel-store');
+      if(sel&&sel.value){
+        document.getElementById('exec-filters').style.display='flex';
+        await syncConteos(sel.value,false);
       }
     }
-  }catch{toast('Sin conexión');}
+  }catch(ex){
+    if(retryCount<2){
+      setTimeout(()=>loadProducts(retryCount+1),2500);
+      return;
+    }
+    document.getElementById(areaId).innerHTML='<div class="empty-state" style="color:var(--red)"><i class="ti ti-alert-triangle"></i>No se pudo cargar el listado de productos.<br><button class="btn-sm" style="margin-top:10px" onclick="loadProducts()">Reintentar</button></div>';
+    toast('Sin conexión — no se pudo cargar productos');
+  }
 }
 
 function populateStores(){
