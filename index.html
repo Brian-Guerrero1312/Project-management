@@ -371,6 +371,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="fpill" onclick="setFilter('others',this)">De otros</div>
         <div class="fpill priority" onclick="setFilter('priority',this)">🔴 Prioridad</div>
       </div>
+      <div id="pending-sync-banner" style="display:none;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--r);margin-bottom:1rem;border:1px solid var(--red-b);background:var(--red-bg);color:var(--red)">
+        <i class="ti ti-cloud-off" style="font-size:20px;flex-shrink:0"></i>
+        <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600" id="pending-sync-title"></div><div style="font-size:11px;opacity:.85">Se reintentan solos, o toca para intentar ahora.</div></div>
+        <button class="btn-sm" style="background:var(--red);color:#fff;border:none;white-space:nowrap" onclick="reintentarPendientes()"><i class="ti ti-refresh"></i> Reintentar</button>
+      </div>
       <div id="goal-card" class="goal-card"></div>
       <div id="inactivity-box" style="display:none;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--r);margin-bottom:1rem;border:1px solid var(--border2);background:var(--bg)">
         <i class="ti ti-clock" style="font-size:20px;flex-shrink:0" id="inactivity-icon"></i>
@@ -1064,7 +1069,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const K_SESSION='wms_session',K_COUNTS='wms_counts',K_CONFIG='wms_config';
 const K_SESSION_SC='wms_session_scanner';
 const MODO=new URLSearchParams(location.search).get('modulo')==='escaner'?'escaner':'main';
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbzZHlejbOcueTv-ya6VI6kkEvqdhRMUNMUryvq_v_3JhI4-W8yNpMM-j0uxQ0awEXm_Jw/exec';
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbyhPRj-wlH7nGVjx0A6IESr_3OVbN23VbCKgWBcoPk3fGyIu2cSzBloa8bLNZ0uC7IX/exec';
 let session=null,storeData={},counts={},curProd=null,closedStores={},activeFilter='all',syncInterval=null,lastSync=null;
 let scSession=null,scTiendaMap={},scPrecarga=[],scConteos={},scOrdenCerrada=false,scCurrentTR=null,scCurrentTienda=null,scFilter='all',scSyncInterval=null;
 function goToScannerModule(){showScreen('scr-login-scanner');}
@@ -1374,14 +1379,27 @@ async function syncConteos(tienda,silent=true){
     const d=await r.json();
     if(!d.ok){setSyncStatus('err','Error sync');return;}
     const prefix=tienda+'_';
-    Object.keys(counts).forEach(k=>{if(k.startsWith(prefix))delete counts[k];});
+    // Importante: un conteo local que todavía está "pending" o "error" (no confirmado por el
+    // servidor) NUNCA se pisa ni se borra aquí — si no, un sync periódico podía borrar justo el
+    // conteo que la persona acababa de hacer y que todavía no había llegado al Sheet, hasta que su
+    // propio reintento lo confirmara. Solo se refresca lo que ya estaba sincronizado, o lo que no
+    // existía localmente todavía.
+    const serverKeys=new Set(d.data.filter(c=>c.usuario).map(c=>tienda+'_'+c.ean));
+    Object.keys(counts).forEach(k=>{
+      if(!k.startsWith(prefix))return;
+      const local=counts[k];
+      if(local&&local.syncStatus&&local.syncStatus!=='synced')return;
+      if(!serverKeys.has(k))delete counts[k];
+    });
     d.data.forEach(c=>{
       if(!c.usuario)return;
       const key=tienda+'_'+c.ean;
+      const local=counts[key];
+      if(local&&local.syncStatus&&local.syncStatus!=='synced')return;
       counts[key]={qty_picking:c.qty_picking,qty_bodega:c.qty_bodega,
         pick_active:c.pick_active||c.qty_picking>0||(c.qty_picking===0&&c.qty_bodega===0),
         bod_active:c.bod_active||c.qty_bodega>0,
-        usuario:c.usuario,ts:c.ts,ean:c.ean,nombre:c.nombre,tienda,categoria:c.categoria};
+        usuario:c.usuario,ts:c.ts,ean:c.ean,nombre:c.nombre,tienda,categoria:c.categoria,syncStatus:'synced'};
     });
     lsSet(K_COUNTS,counts);
     lastSync=new Date();
@@ -1400,11 +1418,17 @@ async function manualSync(){
 
 function startAutoSync(){
   if(syncInterval)clearInterval(syncInterval);
+  // Antes era cada 5 minutos — con varias personas contando la misma tienda a la vez, alguien
+  // podía tardar hasta 5 minutos en ver lo que ya había contado otra persona, con el riesgo real
+  // de que ambos contaran el mismo producto. Ahora cada 20s, y además al recuperar conexión y al
+  // volver a la pestaña/app (ver los listeners de 'online' y 'visibilitychange').
   syncInterval=setInterval(()=>{
     const isAdmin=session?.rol==='admin';
     const storeId=document.getElementById(isAdmin?'adm-sel-store':'sel-store').value;
     if(storeId)syncConteos(storeId,true);
-  },5*60*1000);
+    reintentarPendientes();
+  },20*1000);
+  reintentarPendientes();
 }
 function stopAutoSync(){if(syncInterval)clearInterval(syncInterval);syncInterval=null;}
 
@@ -1533,6 +1557,7 @@ async function resetConteosAdmin(){
 
 function render(){
   const isAdmin=session?.rol==='admin';
+  if(!isAdmin)renderPendingBanner();
   const storeId=document.getElementById(isAdmin?'adm-sel-store':'sel-store').value;
   const q=document.getElementById(isAdmin?'adm-search':'inp-search').value.toLowerCase().trim();
   const areaId=isAdmin?'adm-product-area':'product-area';
@@ -1574,6 +1599,14 @@ function render(){
         else if(hp){pkCnt++;tag=`<span class="${tagClass}">Pick:${c.qty_picking}</span>`;}
         else if(hb){bdCnt++;tag=`<span class="${tagClass}">Bod:${c.qty_bodega}</span>`;}
         else{tag=`<span class="${tagClass}"><i class="ti ti-check"></i> Sin stock</span>`;}
+        // Estado de sincronización real con el servidor (solo aplica a lo que yo conté en este
+        // dispositivo — lo de otras personas ya llegó del servidor, así que siempre está sincronizado).
+        if(isMe&&c.syncStatus==='pending'){
+          tag=`<span class="${tagClass}" style="opacity:.7"><i class="ti ti-clock-hour-4"></i> Guardando...</span>`;
+        }else if(isMe&&c.syncStatus==='error'){
+          rowClass=' counted-other';
+          tag=`<span class="tag-ok-other" style="color:var(--red);background:var(--red-bg)"><i class="ti ti-alert-circle"></i> No se guardó</span>`;
+        }
       }
       const tid='th_'+p.ean.replace(/\W/g,'_');
       const thumb=p.img?`<div class="prod-thumb" id="${tid}"></div>`:`<div class="prod-ph"><i class="ti ti-photo"></i></div>`;
@@ -1856,15 +1889,72 @@ async function saveCnt(){
   const nP=pickActive?Number(document.getElementById('f-pick').value||0):0;
   const nB=bodActive?Number(document.getElementById('f-bod').value||0):0;
   const key=curProd.sid+'_'+curProd.ean,prev=counts[key];
-  const record={qty_picking:nP,qty_bodega:nB,pick_active:pickActive,bod_active:bodActive,usuario:session.name,ts:new Date().toISOString(),ean:curProd.ean,nombre:curProd.p.name,tienda:curProd.sid,categoria:curProd.cat,wh_id:curProd.p.wh_id||'',prev_usuario:prev?.usuario||'',prev_qty_picking:prev?.qty_picking??'',prev_qty_bodega:prev?.qty_bodega??''};
+  // syncStatus: 'pending' hasta que el servidor confirme, 'error' si falló, 'synced' si ya quedó
+  // en el Sheet. Antes se marcaba como guardado solo por quedar en el navegador — si la llamada
+  // al servidor fallaba (saturación, sin conexión), la persona nunca se enteraba y el conteo se
+  // quedaba únicamente en su equipo, sin llegar nunca al Sheet ("como si no hubiera enviado nada").
+  const record={qty_picking:nP,qty_bodega:nB,pick_active:pickActive,bod_active:bodActive,usuario:session.name,ts:new Date().toISOString(),ean:curProd.ean,nombre:curProd.p.name,tienda:curProd.sid,categoria:curProd.cat,wh_id:curProd.p.wh_id||'',prev_usuario:prev?.usuario||'',prev_qty_picking:prev?.qty_picking??'',prev_qty_bodega:prev?.qty_bodega??'',syncStatus:'pending',syncError:''};
   counts[key]=record;lsSet(K_COUNTS,counts);
-  closeMod();render();setTimeout(()=>updateInactivityBox(curProd.sid),100);toast('Guardando...');
-  try{
-    const r=await fetch(getUrl(),{method:'POST',body:new URLSearchParams({action:'saveCount',...record})});
-    const d=await r.json();
-    if(d.ok)toast('Guardado ✓');else toast('Error: '+d.error);
-  }catch{toast('Sin conexión — guardado local');}
+  closeMod();render();setTimeout(()=>updateInactivityBox(curProd.sid),100);
+  await intentarSincronizar(key);
 }
+
+// Manda al servidor un conteo pendiente y actualiza su estado real según lo que responda (no solo
+// el estado local). Se usa justo después de guardar y también desde la cola de reintentos.
+async function intentarSincronizar(key){
+  const record=counts[key];
+  if(!record||record.syncStatus==='synced')return;
+  toast('Guardando...');
+  const {syncStatus,syncError,...payload}=record;
+  try{
+    const r=await fetch(getUrl(),{method:'POST',body:new URLSearchParams({action:'saveCount',...payload})});
+    const d=await r.json();
+    if(counts[key]){
+      if(d.ok){counts[key].syncStatus='synced';counts[key].syncError='';toast('Guardado ✓');}
+      else{counts[key].syncStatus='error';counts[key].syncError=d.error||'Error al guardar';toast('⚠️ No se guardó: '+(d.error||''));}
+      lsSet(K_COUNTS,counts);
+    }
+  }catch{
+    if(counts[key]){counts[key].syncStatus='error';counts[key].syncError='Sin conexión';lsSet(K_COUNTS,counts);}
+    toast('⚠️ Sin conexión — se reintentará solo');
+  }
+  render();
+}
+
+// Reintenta todos los conteos de este dispositivo que quedaron pendientes o con error (de
+// cualquier tienda) — se corre sola cada 20s, y también al recuperar conexión o al volver a la
+// pestaña/app, además de poder tocarse manualmente desde el aviso rojo.
+let reintentandoPendientes=false;
+async function reintentarPendientes(){
+  if(reintentandoPendientes||!session)return;
+  reintentandoPendientes=true;
+  try{
+    const pendientes=Object.keys(counts).filter(k=>counts[k]&&counts[k].syncStatus&&counts[k].syncStatus!=='synced');
+    for(const key of pendientes){await intentarSincronizar(key);}
+  }finally{
+    reintentandoPendientes=false;
+    render();
+  }
+}
+function contarPendientes(){
+  return Object.values(counts).filter(c=>c&&c.syncStatus&&c.syncStatus!=='synced').length;
+}
+function renderPendingBanner(){
+  const banner=document.getElementById('pending-sync-banner');
+  if(!banner)return;
+  const n=contarPendientes();
+  if(n<=0){banner.style.display='none';return;}
+  banner.style.display='flex';
+  document.getElementById('pending-sync-title').textContent=n===1?'1 conteo sin sincronizar':`${n} conteos sin sincronizar`;
+}
+window.addEventListener('online',()=>reintentarPendientes());
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible'||!session)return;
+  reintentarPendientes();
+  const isAdmin=session?.rol==='admin';
+  const storeId=document.getElementById(isAdmin?'adm-sel-store':'sel-store')?.value;
+  if(storeId)syncConteos(storeId,true);
+});
 
 async function deleteCnt(){
   if(!confirm('¿Eliminar este conteo?'))return;
