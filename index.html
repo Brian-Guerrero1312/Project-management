@@ -1069,12 +1069,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const K_SESSION='wms_session',K_COUNTS='wms_counts',K_CONFIG='wms_config';
 const K_SESSION_SC='wms_session_scanner';
 const MODO=new URLSearchParams(location.search).get('modulo')==='escaner'?'escaner':'main';
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbyhPRj-wlH7nGVjx0A6IESr_3OVbN23VbCKgWBcoPk3fGyIu2cSzBloa8bLNZ0uC7IX/exec';
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxAQ47uhjuSnnsbz1NyPa-bLlUsr90YInwuU2qrwc0XJ7GjznrePLOUU8IOs5b2fHd5FQ/exec';
 let session=null,storeData={},counts={},curProd=null,closedStores={},activeFilter='all',syncInterval=null,lastSync=null;
 let scSession=null,scTiendaMap={},scPrecarga=[],scConteos={},scOrdenCerrada=false,scCurrentTR=null,scCurrentTienda=null,scFilter='all',scSyncInterval=null;
+let syncingConteos=false,openCats=new Set();
 function goToScannerModule(){showScreen('scr-login-scanner');}
 function leaveScannerModule(){showScreen('scr-landing');}
 const imgCache={};
+// fetch con límite de tiempo: sin esto, si el servidor tarda mucho en responder (saturación,
+// muchas personas sincronizando a la vez), la petición se queda colgada indefinidamente y la
+// pantalla se queda en "Sincronizando..." para siempre. Con el límite, a los N segundos se corta
+// sola y se trata como error — así el próximo intento automático puede volver a probar.
+async function fetchConTimeout(url,opts,ms){
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),ms||12000);
+  try{ return await fetch(url,{...(opts||{}),signal:ctrl.signal}); }
+  finally{ clearTimeout(t); }
+}
 function debounce(fn,ms){let t;return(...args)=>{clearTimeout(t);t=setTimeout(()=>fn(...args),ms);}}
 function ls(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch{return null}}
 function lsSet(k,v){localStorage.setItem(k,JSON.stringify(v))}
@@ -1361,24 +1372,23 @@ function setFilter(f,el){
 
 async function syncConteos(tienda,silent=true){
   if(!tienda)return;
+  // Si ya hay una sincronización en curso, no se lanza otra encima — evita que, si el servidor
+  // tarda, se acumulen varias peticiones a la vez (eso también puede dejar el indicador
+  // "Sincronizando..." pegado, porque una respuesta vieja llega después que una más nueva).
+  if(syncingConteos)return;
+  syncingConteos=true;
   setSyncStatus('syncing','Sincronizando...');
   try{
-    // Check reset signal
-    try{
-      const rr=await fetch(`${getUrl()}?action=checkReset&tienda=${encodeURIComponent(tienda)}`);
-      const dr=await rr.json();
-      if(dr.ok&&dr.reset){
-        const prefix=tienda+'_';
-        Object.keys(counts).forEach(k=>{if(k.startsWith(prefix))delete counts[k];});
-        lsSet(K_COUNTS,counts);
-        if(!silent)toast('⚠️ Conteos reiniciados por el administrador');
-      }
-    }catch{}
-
-    const r=await fetch(`${getUrl()}?action=getConteos&tienda=${encodeURIComponent(tienda)}`);
+    // El aviso de "reset" ahora viaja en la misma respuesta de getConteos (antes era una llamada
+    // aparte) — una sola petición por sincronización en vez de dos.
+    const r=await fetchConTimeout(`${getUrl()}?action=getConteos&tienda=${encodeURIComponent(tienda)}`,{},12000);
     const d=await r.json();
     if(!d.ok){setSyncStatus('err','Error sync');return;}
     const prefix=tienda+'_';
+    if(d.reset){
+      Object.keys(counts).forEach(k=>{if(k.startsWith(prefix))delete counts[k];});
+      if(!silent)toast('⚠️ Conteos reiniciados por el administrador');
+    }
     // Importante: un conteo local que todavía está "pending" o "error" (no confirmado por el
     // servidor) NUNCA se pisa ni se borra aquí — si no, un sync periódico podía borrar justo el
     // conteo que la persona acababa de hacer y que todavía no había llegado al Sheet, hasta que su
@@ -1407,6 +1417,7 @@ async function syncConteos(tienda,silent=true){
     render();
     if(!silent)toast('Conteos actualizados ✓');
   }catch{setSyncStatus('err','Sin conexión');}
+  finally{syncingConteos=false;}
 }
 
 async function manualSync(){
@@ -1579,9 +1590,14 @@ function render(){
     if(activeFilter==='priority')fil=fil.filter(p=>p.prioridad);
     if(!fil.length)return;
     const cc=fil.filter(p=>counts[storeId+'_'+p.ean]).length;
-    const openStyle=q?'flex':'none';
-    const openClass=q?' open':'';
-    html+=`<div class="cat-section"><div class="cat-hdr${openClass}" onclick="toggleCat(this)"><i class="ti ti-tag" style="font-size:14px;color:var(--text2)"></i><span>${cat}</span><span class="cat-badge">${cc}/${fil.length}</span><i class="ti ti-chevron-down cat-chev"></i></div><div class="prod-list" style="display:${openStyle}">`;
+    // El estado abierto/cerrado de cada categoría se guarda en openCats para que sobreviva a un
+    // re-render (antes se perdía cada vez que render() se volvía a llamar — p.ej. por la
+    // sincronización automática — y la categoría se veía "cerrarse sola" a los pocos segundos).
+    const isOpen=q?true:openCats.has(cat);
+    const openStyle=isOpen?'flex':'none';
+    const openClass=isOpen?' open':'';
+    const catAttr=String(cat).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    html+=`<div class="cat-section"><div class="cat-hdr${openClass}" data-cat="${catAttr}" onclick="toggleCat(this)"><i class="ti ti-tag" style="font-size:14px;color:var(--text2)"></i><span>${cat}</span><span class="cat-badge">${cc}/${fil.length}</span><i class="ti ti-chevron-down cat-chev"></i></div><div class="prod-list" style="display:${openStyle}">`;
     fil.forEach(p=>{
       const key=storeId+'_'+p.ean,c=counts[key];
       total++;
@@ -1907,7 +1923,7 @@ async function intentarSincronizar(key){
   toast('Guardando...');
   const {syncStatus,syncError,...payload}=record;
   try{
-    const r=await fetch(getUrl(),{method:'POST',body:new URLSearchParams({action:'saveCount',...payload})});
+    const r=await fetchConTimeout(getUrl(),{method:'POST',body:new URLSearchParams({action:'saveCount',...payload})},15000);
     const d=await r.json();
     if(counts[key]){
       if(d.ok){counts[key].syncStatus='synced';counts[key].syncError='';toast('Guardado ✓');}
@@ -1977,7 +1993,12 @@ function exportCSV(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`inventario_${storeId}_${new Date().toISOString().slice(0,10)}.csv`;a.click();
 }
 
-function toggleCat(el){el.classList.toggle('open');const l=el.nextSibling;l.style.display=el.classList.contains('open')?'flex':'none';l.style.flexDirection='column';}
+function toggleCat(el){
+  const isOpen=el.classList.toggle('open');
+  const l=el.nextSibling;l.style.display=isOpen?'flex':'none';l.style.flexDirection='column';
+  const cat=el.dataset.cat;
+  if(cat){if(isOpen)openCats.add(cat);else openCats.delete(cat);}
+}
 
 function fixedImg(url,targetId,isBanner){
   if(!url)return;
