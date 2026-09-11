@@ -1975,12 +1975,17 @@ async function intentarSincronizar(key){
     const d=await r.json();
     if(counts[key]){
       if(d.ok){counts[key].syncStatus='synced';counts[key].syncError='';toast('Guardado ✓');}
-      else{counts[key].syncStatus='error';counts[key].syncError=d.error||'Error al guardar';toast('⚠️ No se guardó: '+(d.error||''));}
+      // Sin toast aquí a propósito: un timeout del cliente no significa que el servidor no haya
+      // guardado (Apps Script sigue ejecutando aunque el navegador deje de esperar la respuesta),
+      // y reintentarPendientes() ya reintenta esto solo cada 20s / al reconectar / al volver a la
+      // pestaña. Mostrar "no se guardó" en ese momento alarmaba sin necesidad cuando casi siempre
+      // sí había quedado guardado. El estado real sigue visible en la etiqueta de cada producto
+      // (ver render(), "Guardando..."/"No se guardó") y en el aviso de "N conteos sin sincronizar".
+      else{counts[key].syncStatus='error';counts[key].syncError=d.error||'Error al guardar';}
       lsSet(K_COUNTS,counts);
     }
   }catch{
     if(counts[key]){counts[key].syncStatus='error';counts[key].syncError='Sin conexión';lsSet(K_COUNTS,counts);}
-    toast('⚠️ Sin conexión — se reintentará solo');
   }
   render();
 }
