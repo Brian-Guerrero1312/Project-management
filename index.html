@@ -371,11 +371,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="fpill" onclick="setFilter('others',this)">De otros</div>
         <div class="fpill priority" onclick="setFilter('priority',this)">🔴 Prioridad</div>
       </div>
-      <div id="pending-sync-banner" style="display:none;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--r);margin-bottom:1rem;border:1px solid var(--red-b);background:var(--red-bg);color:var(--red)">
-        <i class="ti ti-cloud-off" style="font-size:20px;flex-shrink:0"></i>
-        <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600" id="pending-sync-title"></div><div style="font-size:11px;opacity:.85">Se reintentan solos, o toca para intentar ahora.</div></div>
-        <button class="btn-sm" style="background:var(--red);color:#fff;border:none;white-space:nowrap" onclick="reintentarPendientes()"><i class="ti ti-refresh"></i> Reintentar</button>
-      </div>
       <div id="goal-card" class="goal-card"></div>
       <div id="inactivity-box" style="display:none;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--r);margin-bottom:1rem;border:1px solid var(--border2);background:var(--bg)">
         <i class="ti ti-clock" style="font-size:20px;flex-shrink:0" id="inactivity-icon"></i>
@@ -456,7 +451,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <button class="btn-ghost" onclick="resetConteosAdmin()" style="flex:1;color:var(--amber);border-color:var(--amber-b)"><i class="ti ti-refresh-alert"></i> Reiniciar conteos</button>
           <button id="btn-close-inv" class="btn-ghost" onclick="toggleCloseInventory()" style="flex:1;color:var(--red);border-color:var(--red-b)"><i class="ti ti-lock"></i> Cerrar inventario</button>
         </div>
-        <button class="btn-ghost" onclick="migrarConteosAHistorial()" style="width:100%;margin-top:8px" title="Revisa Conteos y agrega a Historial_Diario los conteos que falten ahí — para recuperar conteos que se perdieron por el bug de condición de carrera ya corregido en saveCount"><i class="ti ti-transfer-in"></i> Recuperar conteos faltantes en Historial_Diario</button>
       </div>
       <div id="tab-productividad" class="admin-section">
         <div class="controls">
@@ -1665,11 +1659,11 @@ function render(){
         else{tag=`<span class="${tagClass}"><i class="ti ti-check"></i> Sin stock</span>`;}
         // Estado de sincronización real con el servidor (solo aplica a lo que yo conté en este
         // dispositivo — lo de otras personas ya llegó del servidor, así que siempre está sincronizado).
-        if(isMe&&c.syncStatus==='pending'){
+        // A propósito, "error" se muestra igual que "pending" (sin color rojo ni texto de alarma):
+        // el reintento automático lo resuelve solo en segundo plano, y mostrarlo como si hubiera
+        // fallado generaba confusión/discusiones aunque casi siempre sí había quedado guardado.
+        if(isMe&&(c.syncStatus==='pending'||c.syncStatus==='error')){
           tag=`<span class="${tagClass}" style="opacity:.7"><i class="ti ti-clock-hour-4"></i> Guardando...</span>`;
-        }else if(isMe&&c.syncStatus==='error'){
-          rowClass=' counted-other';
-          tag=`<span class="tag-ok-other" style="color:var(--red);background:var(--red-bg)"><i class="ti ti-alert-circle"></i> No se guardó</span>`;
         }
       }
       const tid='th_'+p.ean.replace(/\W/g,'_');
@@ -2976,17 +2970,6 @@ async function recalcularCategorias(){
     const d=await r.json();
     if(!d.ok){toast(d.error||'Error al recalcular');return;}
     toast(`Listo: ${d.actualizados} fila(s) actualizada(s) de ${d.revisados} revisadas${d.sinCatalogo?` (${d.sinCatalogo} sin match en Catalogo)`:''}`);
-  }catch{toast('Sin conexión');}
-}
-async function migrarConteosAHistorial(){
-  if(!confirm('Esto revisa "Conteos" (que solo guarda el conteo más reciente de cada producto) y agrega a Historial_Diario los que falten ahí, sin duplicar ni tocar los que ya existen. Ojo: solo puede recuperar lo que sigue vigente en Conteos ahora mismo — si un producto se volvió a contar después y se sobrescribió, ese conteo anterior ya no se puede recuperar. ¿Continuar?'))return;
-  toast('Revisando Conteos...');
-  try{
-    const params=new URLSearchParams({action:'migrarConteosAHistorial'});
-    const r=await fetch(urlFor(params.get('action')),{method:'POST',body:params});
-    const d=await r.json();
-    if(!d.ok){toast(d.error||'Error al migrar');return;}
-    toast(`Listo: ${d.agregados} conteo(s) agregado(s) a Historial_Diario de ${d.revisados} revisados`);
   }catch{toast('Sin conexión');}
 }
 async function reconciliarSobrantes(){
