@@ -519,13 +519,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
     <div class="cfg-content">
       <div class="cfg-card">
-        <h3><i class="ti ti-brand-google-drive" style="color:#4285F4"></i> Apps Script URL</h3>
-        <p>Pre-configurada. Actualiza solo si cambiaste el despliegue.</p>
-        <input class="cfg-input" type="text" id="cfg-url">
+        <h3><i class="ti ti-brand-google-drive" style="color:#4285F4"></i> Apps Script — Misiones</h3>
+        <p>Solo lectura — para cambiarla hay que editar el archivo.</p>
+        <input class="cfg-input" type="text" id="cfg-url" readonly>
         <div class="status-row"><span class="dot" id="cfg-dot"></span><span id="cfg-status">Sin verificar</span></div>
         <div class="cfg-btns">
           <button class="cfg-btn" onclick="testConnection()"><i class="ti ti-plug"></i> Probar</button>
-          <button class="cfg-btn cfg-btn-primary" onclick="saveConfig()"><i class="ti ti-device-floppy"></i> Guardar</button>
+        </div>
+      </div>
+      <div class="cfg-card">
+        <h3><i class="ti ti-brand-google-drive" style="color:#4285F4"></i> Apps Script — Auditoría</h3>
+        <p>Solo lectura — para cambiarla hay que editar el archivo.</p>
+        <input class="cfg-input" type="text" id="cfg-url-aud" readonly>
+        <div class="status-row"><span class="dot" id="cfg-dot-aud"></span><span id="cfg-status-aud">Sin verificar</span></div>
+        <div class="cfg-btns">
+          <button class="cfg-btn" onclick="testConnectionAuditoria()"><i class="ti ti-plug"></i> Probar</button>
         </div>
       </div>
       <div class="cfg-card">
@@ -1069,7 +1077,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const K_SESSION='wms_session',K_COUNTS='wms_counts',K_CONFIG='wms_config';
 const K_SESSION_SC='wms_session_scanner';
 const MODO=new URLSearchParams(location.search).get('modulo')==='escaner'?'escaner':'main';
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbzU84k9jtGKb3vmkZXW_oYMPzl3JieOcsfRCqK8Cbz5epOj6Ux_b7HxWstq6T39LHCv7A/exec';
+// Tras la migración a 2 archivos de Apps Script (Misiones / Auditoría), cada acción se manda al
+// backend correcto según a qué hoja pertenece — ver AUDITORIA_ACTIONS y urlFor() más abajo. Los
+// datos compartidos (login, usuarios, asistencia) viven en el archivo Maestro pero se sirven
+// indistintamente desde cualquiera de los dos backends (ambos tienen el mismo código de acceso a
+// Maestro), así que esas acciones se enrutan simplemente por MODO.
+const MISIONES_URL='https://script.google.com/macros/s/AKfycbzU84k9jtGKb3vmkZXW_oYMPzl3JieOcsfRCqK8Cbz5epOj6Ux_b7HxWstq6T39LHCv7A/exec';
+const AUDITORIA_URL='https://script.google.com/macros/s/AKfycbzYQZbDRDuixAMOndViVnuYyARsWfjpT87ocBlUKsEQpWwKTMrQjuBTbUkMe4r37ejm1Q/exec';
+const DEFAULT_URL=MISIONES_URL; // compatibilidad: código legado que aún use DEFAULT_URL sigue apuntando a Misiones
+const AUDITORIA_ACTIONS=new Set(['getPrecargaTRs','getPrecarga','getConteosEscaner','getOrdenStatus',
+  'getEscanerResumen','getProgresoDiario','getReporteCategorias','getComparativaTiendas',
+  'getTopProductosCategoria','getDiagnosticoPrecarga','getSugerenciasSobrantes','saveScanCount',
+  'saveScanCountExtra','closeOrden','reopenOrden','recalcularContraPrecarga','recalcularCategorias',
+  'reconciliarSobrantes']);
+// Acciones que viven en Maestro (login, usuarios, checkin/checkout, asistencia): cualquiera de los
+// dos backends las sirve igual, así que se mandan al de "este lado" de la app (MODO) sin necesidad
+// de tenerlas listadas aparte.
+function urlFor(action){return AUDITORIA_ACTIONS.has(action)?AUDITORIA_URL:MISIONES_URL;}
 let session=null,storeData={},counts={},curProd=null,closedStores={},activeFilter='all',syncInterval=null,lastSync=null;
 let scSession=null,scTiendaMap={},scPrecarga=[],scConteos={},scOrdenCerrada=false,scCurrentTR=null,scCurrentTienda=null,scFilter='all',scSyncInterval=null;
 let syncingConteos=false,openCats=new Set();
@@ -1091,7 +1115,12 @@ function ls(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch{retu
 function lsSet(k,v){localStorage.setItem(k,JSON.stringify(v))}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
 function toast(msg,dur=2800){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur)}
-function getUrl(){return DEFAULT_URL;}
+// OJO: MODO solo refleja la pantalla inicial al cargar la página (?modulo=escaner) — desde el
+// landing normal también se puede entrar a Auditoría sin ese parámetro (botón "Auditoría"), así
+// que NO sirve para decidir a qué backend mandar cada acción. Por eso cada llamada usa
+// urlFor('nombreDeLaAccion') explícitamente en vez de esta función. getUrl() queda solo para el
+// ping genérico de la pantalla de configuración.
+function getUrl(){return MISIONES_URL;}
 
 let html2pdfLoading=null;
 function loadHtml2Pdf(){
@@ -1142,7 +1171,7 @@ async function doLogin(){
   if(!name||pin.length!==4){err.textContent='Completa todos los campos.';err.style.display='block';return;}
   toast('Verificando...');
   try{
-    const r=await fetch(`${getUrl()}?action=login&nombre=${encodeURIComponent(name)}&pin=${encodeURIComponent(pin)}`);
+    const r=await fetch(`${urlFor('login')}?action=login&nombre=${encodeURIComponent(name)}&pin=${encodeURIComponent(pin)}`);
     const d=await r.json();
     if(d.ok){session={name:d.nombre,rol:d.rol,tienda:d.tienda};lsSet(K_SESSION,session);onLogin();}
     else{err.textContent=d.error||'Usuario o PIN incorrecto.';err.style.display='block';}
@@ -1160,7 +1189,7 @@ async function doSignup(){
   if(pin!==pin2){err.textContent='Los PINs no coinciden.';err.style.display='block';return;}
   toast('Enviando solicitud...');
   try{
-    const r=await fetch(getUrl(),{method:'POST',body:new URLSearchParams({action:'signup',nombre:name,pin})});
+    const r=await fetch(urlFor('signup'),{method:'POST',body:new URLSearchParams({action:'signup',nombre:name,pin})});
     const d=await r.json();
     if(d.ok)showScreen('scr-pending');
     else{err.textContent=d.error||'Error.';err.style.display='block';}
@@ -1172,7 +1201,8 @@ function onLogin(){
   const initials=session.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   ['av-exec','av-admin'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=initials;});
   document.getElementById('cfg-uname').textContent=session.name;
-  document.getElementById('cfg-url').value=getUrl();
+  document.getElementById('cfg-url').value=MISIONES_URL;
+  const cfgUrlAud=document.getElementById('cfg-url-aud');if(cfgUrlAud)cfgUrlAud.value=AUDITORIA_URL;
   if(session.rol==='admin'){showScreen('scr-admin');loadProducts();loadUsers();loadAsistencia();return;}
   // Para auditores: verificar si ya hizo check-in hoy
   checkCheckinStatus();
@@ -1183,7 +1213,7 @@ let checkinData=null;
 
 async function checkCheckinStatus(){
   try{
-    const r=await fetch(`${getUrl()}?action=getCheckin&usuario=${encodeURIComponent(session.name)}`);
+    const r=await fetch(`${urlFor('getCheckin')}?action=getCheckin&usuario=${encodeURIComponent(session.name)}`);
     const d=await r.json();
     if(d.ok&&d.encontrado&&!d.salida){
       // Ya hizo check-in hoy y no ha salido → ir directo a contar
@@ -1214,7 +1244,7 @@ async function loadCheckinStores(retryCount){
   // Cargar tiendas disponibles desde productos
   const err=document.getElementById('checkin-err');
   try{
-    const r=await fetchConTimeout(getUrl()+'?action=getProducts&t='+Date.now(),{},20000);
+    const r=await fetchConTimeout(urlFor('getProducts')+'?action=getProducts&t='+Date.now(),{},20000);
     const d=await r.json();
     if(!d.ok) throw new Error(d.error||'Error al cargar tiendas');
     storeData={};
@@ -1252,7 +1282,7 @@ async function doCheckin(){
   if(!tienda){err.textContent='Selecciona una tienda';err.style.display='block';return;}
   toast('Registrando entrada...');
   try{
-    const r=await fetch(getUrl(),{method:'POST',body:new URLSearchParams({action:'checkin',usuario:session.name,tienda})});
+    const r=await fetch(urlFor('checkin'),{method:'POST',body:new URLSearchParams({action:'checkin',usuario:session.name,tienda})});
     const d=await r.json();
     if(d.ok){
       checkinData=d;
@@ -1277,7 +1307,7 @@ async function doCheckin(){
 async function doCheckout(){
   if(!confirm('¿Registrar tu salida de hoy?'))return;
   try{
-    const r=await fetch(getUrl(),{method:'POST',body:new URLSearchParams({action:'checkout',usuario:session.name})});
+    const r=await fetch(urlFor('checkout'),{method:'POST',body:new URLSearchParams({action:'checkout',usuario:session.name})});
     const d=await r.json();
     if(d.ok){
       const dur=d.duracion_min;
@@ -1303,16 +1333,16 @@ function logout(){
   showScreen('scr-login');
 }
 
-function saveConfig(){lsSet(K_CONFIG,{url:document.getElementById('cfg-url').value.trim()});toast('Guardado ✓')}
-async function testConnection(){
-  const url=document.getElementById('cfg-url').value.trim()||DEFAULT_URL;
-  const dot=document.getElementById('cfg-dot'),st=document.getElementById('cfg-status');
+async function probarUrl_(url,dotId,statusId){
+  const dot=document.getElementById(dotId),st=document.getElementById(statusId);
   st.innerHTML='<span class="spin">↻</span> Probando...';
   try{const r=await fetch(url+'?action=ping');const d=await r.json();
     if(d.ok){dot.className='dot dot-ok';st.textContent='Conexión exitosa ✓';}
     else{dot.className='dot dot-err';st.textContent='Error: '+d.error;}}
   catch{dot.className='dot dot-err';st.textContent='No se pudo conectar';}
 }
+function testConnection(){probarUrl_(MISIONES_URL,'cfg-dot','cfg-status');}
+function testConnectionAuditoria(){probarUrl_(AUDITORIA_URL,'cfg-dot-aud','cfg-status-aud');}
 
 function switchTab(id,el){
   document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active'));
@@ -1327,7 +1357,7 @@ async function loadAsistencia(){
   const area=document.getElementById('asistencia-area');
   area.innerHTML='<div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div>';
   try{
-    const r=await fetch(getUrl()+'?action=getAsistencia');
+    const r=await fetch(urlFor('getAsistencia')+'?action=getAsistencia');
     const d=await r.json();
     if(!d.ok||!d.data.length){area.innerHTML='<div class="empty-state"><i class="ti ti-users"></i>Sin registros de hoy</div>';return;}
     const ahora=new Date();
@@ -1392,7 +1422,7 @@ async function syncConteos(tienda,silent=true){
   try{
     // El aviso de "reset" ahora viaja en la misma respuesta de getConteos (antes era una llamada
     // aparte) — una sola petición por sincronización en vez de dos.
-    const r=await fetchConTimeout(`${getUrl()}?action=getConteos&tienda=${encodeURIComponent(tienda)}`,{},12000);
+    const r=await fetchConTimeout(`${urlFor('getConteos')}?action=getConteos&tienda=${encodeURIComponent(tienda)}`,{},12000);
     const d=await r.json();
     if(!d.ok){setSyncStatus('err','Error sync');return;}
     const prefix=tienda+'_';
@@ -1460,7 +1490,7 @@ async function loadProducts(retryCount){
   const areaId=isAdmin?'adm-product-area':'product-area';
   document.getElementById(areaId).innerHTML='<div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div>';
   try{
-    const r=await fetchConTimeout(getUrl()+'?action=getProducts&t='+Date.now(),{},20000);
+    const r=await fetchConTimeout(urlFor('getProducts')+'?action=getProducts&t='+Date.now(),{},20000);
     const d=await r.json();
     if(!d.ok) throw new Error(d.error||'Error al cargar productos');
     storeData={};
@@ -1536,7 +1566,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 async function checkClosedStatus(storeId){
   try{
-    const r=await fetch(`${getUrl()}?action=getStatus&tienda=${encodeURIComponent(storeId)}`);
+    const r=await fetch(`${urlFor('getStatus')}?action=getStatus&tienda=${encodeURIComponent(storeId)}`);
     const d=await r.json();
     if(d.ok){
       closedStores[storeId]=d.closed;
@@ -1561,7 +1591,7 @@ async function toggleCloseInventory(){
   if(!confirm(isClosed?'¿Reabrir el inventario?':'¿Cerrar el inventario? Los operadores no podrán hacer cambios.'))return;
   try{
     const params=new URLSearchParams({action:'setStatus',tienda:storeId,closed:isClosed?'false':'true',usuario:session.name});
-    const r=await fetch(getUrl(),{method:'POST',body:params});
+    const r=await fetch(urlFor(params.get('action')),{method:'POST',body:params});
     const d=await r.json();
     if(d.ok){toast(isClosed?'Reabierto ✓':'Cerrado ✓');checkClosedStatus(storeId);}
   }catch{toast('Error');}
@@ -1573,7 +1603,7 @@ async function resetConteosAdmin(){
   if(!confirm(`¿Reiniciar TODOS los conteos de ${storeId}?\n\nEsto borrará los registros en Sheets y limpiará el dispositivo de todos los contadores al sincronizar.`))return;
   try{
     const params=new URLSearchParams({action:'resetConteos',tienda:storeId,usuario:session.name});
-    const r=await fetch(getUrl(),{method:'POST',body:params});
+    const r=await fetch(urlFor(params.get('action')),{method:'POST',body:params});
     const d=await r.json();
     if(d.ok){
       const prefix=storeId+'_';
@@ -1814,14 +1844,14 @@ async function distributeWork(){
   if(!storeData[storeId]){toast('Carga los productos primero');return;}
   toast('Analizando historial...',5000);
   try{
-    const rUsers=await fetch(getUrl()+'?action=getUsers');
+    const rUsers=await fetch(urlFor('getUsers')+'?action=getUsers');
     const dUsers=await rUsers.json();
     if(!dUsers.ok){toast('Error usuarios: '+dUsers.error);return;}
     const auditores=dUsers.data.filter(u=>u.estado==='activo'&&u.rol!=='admin'&&(!u.tienda||u.tienda.trim()===''||u.tienda.trim().toLowerCase()===storeId.toLowerCase()||(storeData[storeId]?.name||'').toLowerCase()===u.tienda.trim().toLowerCase())).map(u=>u.nombre);
     if(!auditores.length){toast('No hay auditores activos para esta tienda.');return;}
     const cats=Object.entries(storeData[storeId].categories).map(([cat,prods])=>({cat,numProductos:prods.length}));
     const params=new URLSearchParams({action:'distributeWork',tienda:storeId,auditores:JSON.stringify(auditores),categorias:JSON.stringify(cats)});
-    const rDist=await fetch(getUrl(),{method:'POST',body:params});
+    const rDist=await fetch(urlFor(params.get('action')),{method:'POST',body:params});
     const dDist=await rDist.json();
     if(!dDist.ok){toast('Error: '+dDist.error);return;}
     const banner=document.getElementById('adm-distribute-banner');
@@ -1860,7 +1890,7 @@ async function loadUsers(){
   const area=document.getElementById('users-area');
   area.innerHTML='<div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div>';
   try{
-    const r=await fetch(getUrl()+'?action=getUsers');const d=await r.json();
+    const r=await fetch(urlFor('getUsers')+'?action=getUsers');const d=await r.json();
     if(!d.ok||!d.data.length){area.innerHTML='<div class="empty-state"><i class="ti ti-users"></i>Sin usuarios</div>';return;}
     let html='<div style="overflow-x:auto"><table class="users-table"><thead><tr><th>Nombre</th><th>Rol</th><th>Tienda</th><th>Estado</th><th></th></tr></thead><tbody>';
     d.data.forEach((u,i)=>{
@@ -1890,7 +1920,7 @@ async function saveUserEdit(){
 function closeUserModal(e){if(e&&e.target!==document.getElementById('user-modal-overlay'))return;document.getElementById('user-modal-overlay').classList.remove('open');}
 async function approveUser(idx,nombre){if(!confirm(`¿Aprobar a ${nombre}?`))return;await postAction({action:'updateUser',idx,campo:'estado',valor:'activo'});toast('Aprobado ✓');loadUsers();}
 async function deleteUser(idx,nombre){if(!confirm(`¿Eliminar a ${nombre}?`))return;await postAction({action:'deleteUser',idx});toast('Eliminado');loadUsers();}
-async function postAction(data){await fetch(getUrl(),{method:'POST',body:new URLSearchParams(data)});}
+async function postAction(data){await fetch(urlFor(data.action),{method:'POST',body:new URLSearchParams(data)});}
 
 function findProd(sid,ean){const s=storeData[sid];for(const[cat,prods]of Object.entries(s.categories)){const p=prods.find(x=>x.ean===ean);if(p)return{p,cat};}return null;}
 
@@ -1941,7 +1971,7 @@ async function intentarSincronizar(key){
   toast('Guardando...');
   const {syncStatus,syncError,...payload}=record;
   try{
-    const r=await fetchConTimeout(getUrl(),{method:'POST',body:new URLSearchParams({action:'saveCount',...payload})},15000);
+    const r=await fetchConTimeout(urlFor('saveCount'),{method:'POST',body:new URLSearchParams({action:'saveCount',...payload})},15000);
     const d=await r.json();
     if(counts[key]){
       if(d.ok){counts[key].syncStatus='synced';counts[key].syncError='';toast('Guardado ✓');}
@@ -1995,7 +2025,7 @@ async function deleteCnt(){
   const key=curProd.sid+'_'+curProd.ean;
   delete counts[key];lsSet(K_COUNTS,counts);closeMod();render();toast('Eliminando...');
   try{
-    const r=await fetch(getUrl(),{method:'POST',body:new URLSearchParams({action:'deleteCount',tienda:curProd.sid,ean:curProd.ean})});
+    const r=await fetch(urlFor('deleteCount'),{method:'POST',body:new URLSearchParams({action:'deleteCount',tienda:curProd.sid,ean:curProd.ean})});
     const d=await r.json();
     if(d.ok)toast('Eliminado ✓');else toast('Error: '+d.error);
   }catch{toast('Sin conexión — eliminado local');}
@@ -2038,7 +2068,7 @@ async function doLoginScanner(){
   if(!name||pin.length!==4){errEl.textContent='Completa todos los campos.';errEl.style.display='block';return;}
   toast('Verificando...');
   try{
-    const r=await fetch(`${getUrl()}?action=login&nombre=${encodeURIComponent(name)}&pin=${encodeURIComponent(pin)}&modulo=escaner`);
+    const r=await fetch(`${urlFor('login')}?action=login&nombre=${encodeURIComponent(name)}&pin=${encodeURIComponent(pin)}&modulo=escaner`);
     const d=await r.json();
     if(d.ok){
       scSession={name:d.nombre,rol:d.rol};lsSet(K_SESSION_SC,scSession);onLoginScanner();
@@ -2059,7 +2089,7 @@ async function doSignupScanner(){
   if(pin!==pin2){errEl.textContent='Los PINs no coinciden.';errEl.style.display='block';return;}
   toast('Enviando solicitud...');
   try{
-    const r=await fetch(getUrl(),{method:'POST',body:new URLSearchParams({action:'signup',nombre:name,pin,modulo:'escaner'})});
+    const r=await fetch(urlFor('signup'),{method:'POST',body:new URLSearchParams({action:'signup',nombre:name,pin,modulo:'escaner'})});
     const d=await r.json();
     if(d.ok)showScreen('scr-pending-scanner');
     else{errEl.textContent=d.error||'Error.';errEl.style.display='block';}
@@ -2087,7 +2117,7 @@ function onLoginScanner(){
 async function loadTRSelectStores(){
   const area=document.getElementById('sc-tr-area');
   try{
-    const r=await fetch(getUrl()+'?action=getPrecargaTRs');
+    const r=await fetch(urlFor('getPrecargaTRs')+'?action=getPrecargaTRs');
     const d=await r.json();
     if(!d.ok){area.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>'+(d.error||'Error al cargar')+'</div>';return;}
     scTiendaMap=d.tiendas||{};
@@ -2150,9 +2180,9 @@ async function loadOrden(silent){
   setScSyncStatus('syncing','Sincronizando...');
   try{
     const [rp,rc,ro]=await Promise.all([
-      fetch(`${getUrl()}?action=getPrecarga&tr=${encodeURIComponent(scCurrentTR)}`),
-      fetch(`${getUrl()}?action=getConteosEscaner&tr=${encodeURIComponent(scCurrentTR)}`),
-      fetch(`${getUrl()}?action=getOrdenStatus&tr=${encodeURIComponent(scCurrentTR)}`)
+      fetch(`${urlFor('getPrecarga')}?action=getPrecarga&tr=${encodeURIComponent(scCurrentTR)}`),
+      fetch(`${urlFor('getConteosEscaner')}?action=getConteosEscaner&tr=${encodeURIComponent(scCurrentTR)}`),
+      fetch(`${urlFor('getOrdenStatus')}?action=getOrdenStatus&tr=${encodeURIComponent(scCurrentTR)}`)
     ]);
     const dp=await rp.json(),dc=await rc.json(),doS=await ro.json();
     if(!dp.ok){setScSyncStatus('err','Error');toast(dp.error||'Error al cargar precarga');return;}
@@ -2301,7 +2331,7 @@ async function doSaveScanCount(cantidad,danado,confirmado){
   closeCountModal();toast('Guardando...');
   try{
     const params=new URLSearchParams({action:'saveScanCount',tr:scCurrentTR,ean:scEditingEAN,cantidad_fisica:cantidad,cantidad_danada:danado,usuario:scSession.name,confirmado:confirmado?'true':'false'});
-    const r=await fetch(getUrl(),{method:'POST',body:params});
+    const r=await fetch(urlFor(params.get('action')),{method:'POST',body:params});
     const d=await r.json();
     if(d.ok){
       scConteos[scEditingEAN]={ean:scEditingEAN,cantidad_fisica:cantidad,cantidad_danada:danado,cantidad_precargada:d.cantidad_precargada,coincide:d.coincide,precargado:true,usuario:scSession.name,ts:new Date().toISOString()};
@@ -2327,7 +2357,7 @@ async function doCloseOrden(revalidados){
   toast('Cerrando...');
   try{
     const params=new URLSearchParams({action:'closeOrden',tr:scCurrentTR,tienda:scCurrentTienda,usuario:scSession.name,revalidados:(revalidados||[]).join(',')});
-    const r=await fetch(getUrl(),{method:'POST',body:params});
+    const r=await fetch(urlFor(params.get('action')),{method:'POST',body:params});
     const d=await r.json();
     if(d.ok){scOrdenCerrada=true;renderScanList();toast('Orden cerrada ✓');}
     else toast('Error: '+d.error);
@@ -2381,7 +2411,7 @@ async function loadReportes(){
   const area=document.getElementById('rep-area');
   area.innerHTML='<div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div>';
   try{
-    const r=await fetch(getUrl()+'?action=getEscanerResumen');
+    const r=await fetch(urlFor('getEscanerResumen')+'?action=getEscanerResumen');
     const d=await r.json();
     if(!d.ok){area.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>'+(d.error||'Error al cargar')+'</div>';return;}
     repData=d.data||[];
@@ -2405,7 +2435,7 @@ async function ensureDiaData(){
   if(!dia)return;
   if(repDiaCache===dia&&repDataDia)return;
   try{
-    const r=await fetch(getUrl()+'?action=getEscanerResumen&dia='+encodeURIComponent(dia));
+    const r=await fetch(urlFor('getEscanerResumen')+'?action=getEscanerResumen&dia='+encodeURIComponent(dia));
     const d=await r.json();
     if(d.ok){repDataDia=d.data||[];repDiaCache=dia;}
   }catch{}
@@ -2492,7 +2522,7 @@ async function loadProgresoDiario(){
   accArea.innerHTML='<div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div>';
   const tienda=document.getElementById('rep-sel-store').value;
   try{
-    const r=await fetch(getUrl()+'?action=getProgresoDiario'+(tienda?'&tienda='+encodeURIComponent(tienda):''));
+    const r=await fetch(urlFor('getProgresoDiario')+'?action=getProgresoDiario'+(tienda?'&tienda='+encodeURIComponent(tienda):''));
     const d=await r.json();
     if(!d.ok){const msg='<div class="empty-state"><i class="ti ti-alert-circle"></i>'+(d.error||'Error al cargar')+'</div>';chartArea.innerHTML=msg;accArea.innerHTML=msg;return;}
     renderProgresoChart(d.data||[]);
@@ -2588,7 +2618,7 @@ async function loadCategorias(){
   const tienda=document.getElementById('rep-sel-store').value;
   const dia=document.getElementById('rep-sel-dia').value;
   try{
-    const r=await fetch(getUrl()+'?action=getReporteCategorias'+(tienda?'&tienda='+encodeURIComponent(tienda):'')+(dia?'&dia='+encodeURIComponent(dia):''));
+    const r=await fetch(urlFor('getReporteCategorias')+'?action=getReporteCategorias'+(tienda?'&tienda='+encodeURIComponent(tienda):'')+(dia?'&dia='+encodeURIComponent(dia):''));
     const d=await r.json();
     if(!d.ok){chartArea.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>'+(d.error||'Error al cargar')+'</div>';return;}
     repCatData=d.data||[];
@@ -2652,7 +2682,7 @@ async function toggleCategoriaProductos(idx){
   const tienda=document.getElementById('rep-sel-store').value;
   const dia=document.getElementById('rep-sel-dia').value;
   try{
-    const r=await fetch(getUrl()+'?action=getTopProductosCategoria&categoria='+encodeURIComponent(d.categoria)+(tienda?'&tienda='+encodeURIComponent(tienda):'')+(dia?'&dia='+encodeURIComponent(dia):''));
+    const r=await fetch(urlFor('getTopProductosCategoria')+'?action=getTopProductosCategoria&categoria='+encodeURIComponent(d.categoria)+(tienda?'&tienda='+encodeURIComponent(tienda):'')+(dia?'&dia='+encodeURIComponent(dia):''));
     const res=await r.json();
     if(!res.ok){area.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>'+(res.error||'Error al cargar')+'</div>';return;}
     const data=res.data||[];
@@ -2692,7 +2722,7 @@ async function loadComparativaTiendas(){
   tblArea.innerHTML='';
   const dia=document.getElementById('rep-sel-dia').value;
   try{
-    const r=await fetch(getUrl()+'?action=getComparativaTiendas'+(dia?'&dia='+encodeURIComponent(dia):''));
+    const r=await fetch(urlFor('getComparativaTiendas')+'?action=getComparativaTiendas'+(dia?'&dia='+encodeURIComponent(dia):''));
     const d=await r.json();
     if(!d.ok){chartArea.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>'+(d.error||'Error al cargar')+'</div>';return;}
     repTiendasData=d.data||[];
@@ -2861,7 +2891,7 @@ async function submitExtraCount(){
   closeExtraModal();toast('Guardando...');
   try{
     const params=new URLSearchParams({action:'saveScanCountExtra',tr:scCurrentTR,tienda:scCurrentTienda,ean,nombre,cantidad_fisica:cantidad,cantidad_danada:danado,usuario:scSession.name});
-    const r=await fetch(getUrl(),{method:'POST',body:params});
+    const r=await fetch(urlFor(params.get('action')),{method:'POST',body:params});
     const d=await r.json();
     if(d.ok){
       scConteos[ean]={ean,nombre:d.nombre,cantidad_fisica:cantidad,cantidad_danada:danado,cantidad_precargada:0,coincide:false,diferencia:d.diferencia,precargado:false,usuario:scSession.name,ts:new Date().toISOString()};
@@ -2890,7 +2920,7 @@ async function loadEscanerResumen(){
   const area=document.getElementById('escaner-resumen-area');
   area.innerHTML='<div class="empty-state"><i class="ti ti-loader-2 spin"></i>Cargando...</div>';
   try{
-    const r=await fetch(getUrl()+'?action=getEscanerResumen');const d=await r.json();
+    const r=await fetch(urlFor('getEscanerResumen')+'?action=getEscanerResumen');const d=await r.json();
     if(!d.ok){area.innerHTML='<div class="empty-state"><i class="ti ti-alert-circle"></i>'+(d.error||'Error al cargar')+'</div>';return;}
     escResumenData=d.data||[];
     const sel=document.getElementById('esc-sel-store');
@@ -2925,7 +2955,7 @@ async function recalcularContraPrecarga(){
   toast('Recalculando...');
   try{
     const params=new URLSearchParams({action:'recalcularContraPrecarga'});
-    const r=await fetch(getUrl(),{method:'POST',body:params});
+    const r=await fetch(urlFor(params.get('action')),{method:'POST',body:params});
     const d=await r.json();
     if(!d.ok){toast(d.error||'Error al recalcular');return;}
     toast(`Listo: ${d.actualizados} conteo(s) corregido(s) de ${d.revisados} revisados${d.sinPrecarga?` (${d.sinPrecarga} sin precarga)`:''}`);
@@ -2937,7 +2967,7 @@ async function recalcularCategorias(){
   toast('Recalculando categorías...');
   try{
     const params=new URLSearchParams({action:'recalcularCategorias'});
-    const r=await fetch(getUrl(),{method:'POST',body:params});
+    const r=await fetch(urlFor(params.get('action')),{method:'POST',body:params});
     const d=await r.json();
     if(!d.ok){toast(d.error||'Error al recalcular');return;}
     toast(`Listo: ${d.actualizados} fila(s) actualizada(s) de ${d.revisados} revisadas${d.sinCatalogo?` (${d.sinCatalogo} sin match en Catalogo)`:''}`);
@@ -2948,7 +2978,7 @@ async function migrarConteosAHistorial(){
   toast('Revisando Conteos...');
   try{
     const params=new URLSearchParams({action:'migrarConteosAHistorial'});
-    const r=await fetch(getUrl(),{method:'POST',body:params});
+    const r=await fetch(urlFor(params.get('action')),{method:'POST',body:params});
     const d=await r.json();
     if(!d.ok){toast(d.error||'Error al migrar');return;}
     toast(`Listo: ${d.agregados} conteo(s) agregado(s) a Historial_Diario de ${d.revisados} revisados`);
@@ -2959,7 +2989,7 @@ async function reconciliarSobrantes(){
   toast('Reconciliando sobrantes...');
   try{
     const params=new URLSearchParams({action:'reconciliarSobrantes'});
-    const r=await fetch(getUrl(),{method:'POST',body:params});
+    const r=await fetch(urlFor(params.get('action')),{method:'POST',body:params});
     const d=await r.json();
     if(!d.ok){toast(d.error||'Error al reconciliar');return;}
     toast(`Listo: ${d.reclasificados} fila(s) reclasificada(s) de ${d.revisados} sobrantes revisados`);
@@ -2976,7 +3006,7 @@ async function loadSugerenciasSobrantes(){
     const tienda=document.getElementById('esc-sel-store').value||'';
     const params=new URLSearchParams({action:'getSugerenciasSobrantes'});
     if(tienda)params.set('tienda',tienda);
-    const r=await fetch(`${getUrl()}?${params.toString()}`);
+    const r=await fetch(`${urlFor(params.get('action'))}?${params.toString()}`);
     const d=await r.json();
     if(!d.ok){area.innerHTML=`<div class="empty-state">${d.error||'Error al buscar coincidencias'}</div>`;return;}
     sugerenciasSobrantesData=d.data||[];
