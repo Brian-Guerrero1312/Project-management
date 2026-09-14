@@ -626,7 +626,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="scr-reportes" class="screen">
   <div class="main-page">
     <div class="top-bar">
-      <button class="btn-ghost" onclick="showScreen('scr-scanner-select')"><i class="ti ti-arrow-left"></i></button>
+      <button class="btn-ghost" id="rep-back-btn" onclick="showScreen('scr-scanner-select')"><i class="ti ti-arrow-left"></i></button>
       <div class="top-logo" style="min-width:0"><span>Reportes</span></div>
       <button class="btn-ghost" onclick="loadReportes()" title="Actualizar"><i class="ti ti-refresh"></i></button>
     </div>
@@ -1071,6 +1071,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const K_SESSION='wms_session',K_COUNTS='wms_counts',K_CONFIG='wms_config';
 const K_SESSION_SC='wms_session_scanner';
 const MODO=new URLSearchParams(location.search).get('modulo')==='escaner'?'escaner':'main';
+// Link público del Dashboard (?modulo=dashboard): entra directo a Reportes sin pasar por login.
+// Los endpoints de Reportes (getEscanerResumen, getProgresoDiario, getReporteCategorias,
+// getComparativaTiendas, getTopProductosCategoria) no requieren sesión en el backend, así que
+// esto solo salta la navegación del cliente — no hace falta tocar el .gs.
+const MODO_DASH_PUBLICO=new URLSearchParams(location.search).get('modulo')==='dashboard';
 // Tras la migración a 2 archivos de Apps Script (Misiones / Auditoría), cada acción se manda al
 // backend correcto según a qué hoja pertenece — ver AUDITORIA_ACTIONS y urlFor() más abajo. Los
 // datos compartidos (login, usuarios, asistencia) viven en el archivo Maestro pero se sirven
@@ -3049,6 +3054,14 @@ function descargarSugerenciasCSV(){
   if(MODO==='escaner')showScreen('scr-login-scanner');
   else showScreen('scr-landing');
 })();
+// Link público del Dashboard: tiene prioridad sobre cualquier sesión guardada — si alguien abre
+// el link mientras ya tiene sesión iniciada en este navegador, igual va directo al Dashboard.
+if(MODO_DASH_PUBLICO){
+  const backBtn=document.getElementById('rep-back-btn');
+  if(backBtn)backBtn.style.display='none';
+  showScreen('scr-reportes');
+  loadReportes();
+}
 </script>
 </body>
 </html>
