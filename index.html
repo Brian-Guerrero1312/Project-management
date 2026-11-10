@@ -276,6 +276,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .btn-full.audit:hover{background:#92620a}
 .fpill.warn{border-color:var(--amber-b);color:var(--amber)}
 .fpill.warn.active{background:var(--amber);color:#fff;border-color:var(--amber)}
+/* ---- Módulo Recibo Palomas ---- */
+.rb-logo{width:52px;height:52px;border-radius:var(--rl);background:var(--blue-bg);display:flex;align-items:center;justify-content:center;margin-bottom:1.5rem}
+.rb-logo i{font-size:26px;color:var(--blue)}
+.rb-step-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;text-align:center;margin-bottom:4px}
+.rb-pallet-badge{background:var(--blue-bg);border:1px solid var(--blue);border-radius:var(--r);padding:8px 14px;font-size:16px;font-weight:700;color:var(--blue);text-align:center;margin-bottom:1rem;letter-spacing:1px;word-break:break-all}
+.rb-top{background:var(--bg);border-bottom:0.5px solid var(--border);padding:0 1rem;height:52px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:50}
+.rb-top-title{font-size:15px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rb-capture-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);margin-bottom:6px}
+.rb-capture-row.anulada{opacity:.45}
+.rb-capture-ean{font-size:13px;font-weight:600;font-family:'Courier New',monospace;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rb-capture-cant{font-size:13px;font-weight:700;color:var(--blue);min-width:36px;text-align:right}
+.rb-capture-vence{font-size:11px;color:var(--text2);margin-top:1px}
+.rb-fab{position:fixed;bottom:22px;right:18px;width:58px;height:58px;border-radius:50%;background:var(--blue);color:#fff;border:none;box-shadow:0 4px 16px rgba(0,0,0,.25);font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:80}
+.rb-fab:hover{background:#1450aa}
+.rb-scan-box{width:100%;background:#000;border-radius:var(--rl) var(--rl) 0 0;overflow:hidden;position:relative;aspect-ratio:4/3;min-height:280px}
+#rb-scan-reader{width:100%;height:100%}
+.rb-scan-hint{padding:10px 16px;font-size:12px;color:var(--text2);text-align:center}
+.rb-cerrado-banner{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--green-bg);border:1px solid var(--green);border-radius:var(--r);margin-bottom:1rem;font-size:13px;color:var(--green-dk);font-weight:500}
+.rb-vence-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem}
+.rb-vence-btn{padding:10px 8px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s}
+.rb-vence-btn.active{border-color:var(--blue);background:var(--blue-bg);color:var(--blue)}
 </style>
 </head>
 <body>
@@ -288,6 +309,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <h1>Punto de Control</h1><p class="sub" style="margin-bottom:1.5rem">¿A qué quieres entrar?</p>
     <button class="btn-full" style="padding:16px;font-size:16px" onclick="showScreen('scr-login')"><i class="ti ti-clipboard-check"></i> Misiones Chedraui</button>
     <button class="btn-full audit" style="padding:16px;font-size:16px;margin-top:10px" onclick="showScreen('scr-login-scanner')"><i class="ti ti-barcode"></i> Auditoría</button>
+    <button class="btn-full" style="padding:16px;font-size:16px;margin-top:10px;background:var(--blue)" onclick="showScreen('scr-recibo-login')"><i class="ti ti-truck-delivery"></i> Recibo Palomas</button>
   </div></div>
 </div>
 
@@ -1068,6 +1090,150 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+<!-- ============================================================
+     MÓDULO RECIBO PALOMAS EN TIENDA
+     ============================================================ -->
+
+<!-- LOGIN RECIBO: selección de tienda -->
+<div id="scr-recibo-login" class="screen">
+  <div class="auth-page"><div class="auth-card">
+    <div class="link-alt" style="text-align:left;margin-top:0;margin-bottom:14px" onclick="showScreen('scr-landing')"><i class="ti ti-arrow-left"></i> Volver</div>
+    <div class="rb-logo" style="margin:0 auto 1rem"><i class="ti ti-truck-delivery"></i></div>
+    <h1 style="text-align:center">Recibo Palomas</h1>
+    <p class="sub" style="text-align:center;margin-bottom:1.5rem">Selecciona tu tienda</p>
+    <div class="field">
+      <label>Tienda</label>
+      <select id="rb-tienda-select" style="width:100%;height:44px;padding:0 12px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);font-size:14px">
+        <option value="">Cargando tiendas...</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>ID de equipo <span style="font-weight:400;color:var(--text3)">(opcional — se genera uno si lo dejas vacío)</span></label>
+      <input type="text" id="rb-equipo-input" placeholder="Ej. BODEGA-01" autocomplete="off" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+    </div>
+    <div id="rb-login-err" class="err-msg" style="display:none"></div>
+    <button class="btn-full" onclick="rbLogin()"><i class="ti ti-login"></i> Entrar</button>
+  </div></div>
+</div>
+
+<!-- PALLET RECIBO: ingresar número de pallet -->
+<div id="scr-recibo-pallet" class="screen">
+  <div class="rb-top">
+    <button class="icon-btn" onclick="rbLogout()" style="color:var(--text2)"><i class="ti ti-logout"></i></button>
+    <span class="rb-top-title">Recibo Palomas</span>
+    <span style="font-size:12px;color:var(--text3)" id="rb-pallet-equipo"></span>
+  </div>
+  <div style="padding:1.5rem 1rem 2rem">
+    <div class="rb-step-label">TIENDA</div>
+    <div id="rb-pallet-info" style="font-size:17px;font-weight:700;text-align:center;margin-bottom:1.5rem;color:var(--text)"></div>
+
+    <div class="card" style="margin-bottom:1rem">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Escanea o ingresa el número del pallet (etiqueta Code 128).</p>
+      <div class="field">
+        <label>Número de pallet</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="rb-pallet-num-input" inputmode="numeric" placeholder="10–30 dígitos" autocomplete="off" style="flex:1" onkeydown="if(event.key==='Enter')rbAbrirPallet()">
+          <button class="icon-btn" style="background:var(--blue-bg);color:var(--blue);border-radius:var(--r);padding:10px;flex-shrink:0" onclick="rbStartScan('pallet',rbScanPalletBarcode)"><i class="ti ti-camera"></i></button>
+        </div>
+      </div>
+      <div id="rb-pallet-err" class="err-msg" style="display:none"></div>
+      <button class="btn-full" onclick="rbAbrirPallet()"><i class="ti ti-package"></i> Abrir pallet</button>
+    </div>
+  </div>
+</div>
+
+<!-- CAPTURA RECIBO: lista de capturas + FAB escanear -->
+<div id="scr-recibo-captura" class="screen">
+  <div class="rb-top">
+    <button class="icon-btn" onclick="showScreen('scr-recibo-pallet');rbStopScan()" style="color:var(--text2)"><i class="ti ti-arrow-left"></i></button>
+    <div style="flex:1;min-width:0">
+      <div class="rb-top-title" id="rb-cap-pallet"></div>
+      <div style="font-size:11px;color:var(--text3)" id="rb-cap-tienda"></div>
+    </div>
+    <div style="font-size:12px;color:var(--text2)" id="rb-cap-counter"></div>
+  </div>
+
+  <!-- Banner pallet cerrado -->
+  <div class="rb-cerrado-banner" id="rb-cerrado-banner" style="display:none;margin:1rem 1rem 0">
+    <i class="ti ti-lock" style="font-size:18px"></i>
+    <div><strong>Pallet cerrado</strong><br><span style="font-size:11px">No se pueden agregar más capturas.</span></div>
+  </div>
+
+  <!-- Lista de capturas -->
+  <div style="padding:1rem 1rem 100px" id="rb-cap-list">
+    <div class="empty-state" style="padding:2rem 1rem"><i class="ti ti-package"></i>Sin capturas aún — escanea un producto</div>
+  </div>
+
+  <!-- Botón cerrar pallet -->
+  <div style="padding:0 1rem 1rem;position:fixed;bottom:90px;left:0;right:0;z-index:70" id="rb-btn-cerrar-wrap">
+    <button id="rb-btn-cerrar" class="btn-full" style="background:var(--green);color:#fff" onclick="rbCerrarPallet()"><i class="ti ti-check"></i> Cerrar pallet</button>
+  </div>
+
+  <!-- FAB escanear EAN -->
+  <button class="rb-fab" id="rb-fab-scan" onclick="rbFabScan()"><i class="ti ti-scan"></i></button>
+
+  <!-- Botón ingreso manual -->
+  <div style="position:fixed;bottom:22px;left:18px;z-index:80">
+    <button class="icon-btn" style="background:var(--bg2);border:1px solid var(--border2);border-radius:50%;width:44px;height:44px;color:var(--text2)" onclick="rbManualEAN()" title="Ingresar EAN manual"><i class="ti ti-keyboard"></i></button>
+  </div>
+</div>
+
+<!-- MODAL ESCANEO CÁMARA -->
+<div class="modal-overlay" id="rb-scan-modal-overlay" onclick="rbCloseScanModal()" style="display:none;align-items:flex-end">
+  <style>#rb-scan-modal-overlay.open{display:flex}</style>
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:480px;padding:0;border-radius:var(--rl) var(--rl) 0 0;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:0.5px solid var(--border)">
+      <i class="ti ti-camera" style="color:var(--blue);font-size:20px"></i>
+      <span style="font-weight:600;flex:1" id="rb-scan-modal-title">Escanear</span>
+      <button class="icon-btn" onclick="rbCloseScanModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="rb-scan-box"><div id="rb-scan-reader"></div></div>
+    <div class="rb-scan-hint" id="rb-scan-modal-hint">Apunta al código de barras</div>
+  </div>
+</div>
+
+<!-- MODAL CANTIDAD + FECHA (después de escanear EAN) -->
+<div class="modal-overlay" id="rb-add-modal-overlay" onclick="rbCloseAddModal()" style="display:none;align-items:flex-end">
+  <style>#rb-add-modal-overlay.open{display:flex}</style>
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:420px">
+    <div class="modal-head">
+      <span style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Código escaneado</span>
+      <div class="rb-pallet-badge" id="rb-add-ean" style="margin-top:4px;margin-bottom:0;font-size:18px"></div>
+    </div>
+    <div class="modal-body" style="padding-top:0">
+      <div class="field" style="margin-bottom:1rem">
+        <label>Cantidad</label>
+        <input type="number" id="rb-add-cant-input" inputmode="numeric" min="1" max="99999" value="1" style="font-size:22px;font-weight:700;text-align:center;height:52px" onkeydown="if(event.key==='Enter')rbSubmitCaptura()">
+      </div>
+      <div id="rb-add-vence-section"></div>
+      <div id="rb-add-err" class="err-msg" style="display:none"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-full" onclick="rbSubmitCaptura()"><i class="ti ti-check"></i> Guardar captura</button>
+      <button class="btn-full btn-outline" onclick="rbCloseAddModal()" style="margin-top:8px">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ANULAR CAPTURA -->
+<div class="modal-overlay" id="rb-anular-overlay" onclick="rbCloseAnular()" style="display:none;align-items:flex-end">
+  <style>#rb-anular-overlay.open{display:flex}</style>
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:420px">
+    <div class="modal-head">
+      <span style="font-weight:700;font-size:16px;color:var(--red)"><i class="ti ti-trash"></i> Anular captura</span>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:14px;color:var(--text2);margin-bottom:8px">¿Seguro que quieres anular esta captura? La fila quedará como "Anulada" en el Sheet.</p>
+      <div style="font-weight:700" id="rb-anular-ean"></div>
+      <div style="font-size:13px;color:var(--text2)" id="rb-anular-cant"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-full" style="background:var(--red);color:#fff" onclick="rbConfirmarAnular()"><i class="ti ti-trash"></i> Sí, anular</button>
+      <button class="btn-full btn-outline" onclick="rbCloseAnular()" style="margin-top:8px">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const K_SESSION='wms_session',K_COUNTS='wms_counts',K_CONFIG='wms_config';
 const K_SESSION_SC='wms_session_scanner';
@@ -1113,7 +1279,11 @@ async function fetchConTimeout(url,opts,ms){
 function debounce(fn,ms){let t;return(...args)=>{clearTimeout(t);t=setTimeout(()=>fn(...args),ms);}}
 function ls(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch{return null}}
 function lsSet(k,v){localStorage.setItem(k,JSON.stringify(v))}
-function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='scr-recibo-login')rbOnLoginScreen();
+}
 function toast(msg,dur=2800){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur)}
 // OJO: MODO solo refleja la pantalla inicial al cargar la página (?modulo=escaner) — desde el
 // landing normal también se puede entrar a Auditoría sin ese parámetro (botón "Auditoría"), así
@@ -3079,6 +3249,303 @@ function descargarSugerenciasCSV(){
 }
 
 // ============================================================
+// MÓDULO RECIBO PALOMAS
+// ============================================================
+const RECIBO_URL='https://script.google.com/macros/s/AKfycbxBofRJJa6NpyJdIFxWcCk21-vqE1gvjajcuIG58isWEE-KkZi-xP2c5nqMlTvpBQ-Eqw/exec';
+const K_SESSION_RB='wms_session_recibo';
+let rbSession=null,rbTiendas=[],rbPalletActual=null,rbCaptures=[],rbPalletCerrado=false;
+let rbScanInstance=null,rbScanMode=null; // 'pallet' | 'ean'
+let rbPendingEAN=null,rbVenceSelec=null,rbVenceCalendar=false;
+
+async function rbPost(data){
+  const r=await fetch(RECIBO_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(data)});
+  return r.json();
+}
+
+function rbShowScreen(id){showScreen(id);}
+
+// --- LOGIN ---
+async function rbLogin(){
+  const eq=(document.getElementById('rb-equipo-input').value||'').trim();
+  const tienda=document.getElementById('rb-tienda-select').value;
+  const err=document.getElementById('rb-login-err');
+  err.style.display='none';
+  if(!tienda){err.textContent='Selecciona una tienda.';err.style.display='block';return;}
+  // Equipo: generar aleatorio si no ponen nada
+  const equipo=eq||('EQ-'+Math.random().toString(36).slice(2,7).toUpperCase());
+  rbSession={tienda,equipo,tiendaNombre:rbTiendas.find(t=>t.codigo===tienda)?.nombre||tienda};
+  lsSet(K_SESSION_RB,rbSession);
+  toast('¡Bienvenido! Equipo: '+equipo);
+  rbShowScreen('scr-recibo-pallet');
+  document.getElementById('rb-pallet-equipo').textContent='Equipo: '+equipo;
+}
+function rbLogout(){
+  if(!confirm('¿Cerrar sesión de Recibo Palomas?'))return;
+  rbSession=null;rbPalletActual=null;rbCaptures=[];rbPalletCerrado=false;
+  localStorage.removeItem(K_SESSION_RB);
+  rbStopScan();
+  showScreen('scr-landing');
+}
+
+async function rbLoadTiendas(){
+  const sel=document.getElementById('rb-tienda-select');
+  sel.innerHTML='<option value="">Cargando...</option>';
+  try{
+    const d=await rbPost({accion:'tiendas'});
+    rbTiendas=d.ok?d.data:[];
+    sel.innerHTML='<option value="">— Selecciona tu tienda —</option>'+rbTiendas.map(t=>`<option value="${t.codigo}">${t.codigo} — ${t.nombre}</option>`).join('');
+  }catch{sel.innerHTML='<option value="">Error al cargar tiendas</option>';}
+}
+
+// --- PANTALLA PALLET ---
+function rbOnAbrirPalletScreen(){
+  document.getElementById('rb-pallet-info').textContent=rbSession.tiendaNombre||rbSession.tienda;
+  document.getElementById('rb-pallet-equipo').textContent='Equipo: '+rbSession.equipo;
+  document.getElementById('rb-pallet-num-input').value='';
+  document.getElementById('rb-pallet-err').style.display='none';
+}
+async function rbScanPalletBarcode(codigo){
+  const inp=document.getElementById('rb-pallet-num-input');
+  inp.value=codigo;
+  await rbAbrirPallet();
+}
+async function rbAbrirPallet(){
+  const pallet=(document.getElementById('rb-pallet-num-input').value||'').trim().replace(/\D/g,'');
+  const err=document.getElementById('rb-pallet-err');
+  err.style.display='none';
+  if(!pallet||pallet.length<10||pallet.length>30){err.textContent='El número de pallet debe tener entre 10 y 30 dígitos.';err.style.display='block';return;}
+  toast('Abriendo pallet...');
+  try{
+    const d=await rbPost({accion:'abrirPallet',tienda:rbSession.tienda,pallet,equipo:rbSession.equipo});
+    if(!d.ok){err.textContent=d.error||'Error al abrir pallet.';err.style.display='block';return;}
+    rbPalletActual=pallet;
+    rbCaptures=d.capturas||[];
+    rbPalletCerrado=false;
+    if(d.retomado)toast('Pallet retomado — continuando donde quedaste');
+    rbGoToCaptura();
+  }catch{err.textContent='Sin conexión. Intenta de nuevo.';err.style.display='block';}
+}
+
+// --- PANTALLA CAPTURA ---
+function rbGoToCaptura(){
+  rbShowScreen('scr-recibo-captura');
+  document.getElementById('rb-cap-pallet').textContent='Pallet: '+rbPalletActual;
+  document.getElementById('rb-cap-tienda').textContent=rbSession.tiendaNombre||rbSession.tienda;
+  rbRenderCaptures();
+}
+function rbRenderCaptures(){
+  const area=document.getElementById('rb-cap-list');
+  const validas=rbCaptures.filter(c=>c.estado==='Válida');
+  const anuladas=rbCaptures.filter(c=>c.estado==='Anulada');
+  document.getElementById('rb-cap-counter').textContent=`${validas.length} prod · ${validas.reduce((s,c)=>s+(Number(c.cantidad)||0),0)} pzas`;
+  if(rbPalletCerrado){
+    document.getElementById('rb-cerrado-banner').style.display='flex';
+    document.getElementById('rb-fab-scan').style.display='none';
+    document.getElementById('rb-btn-cerrar').style.display='none';
+  }else{
+    document.getElementById('rb-cerrado-banner').style.display='none';
+    document.getElementById('rb-fab-scan').style.display='flex';
+    document.getElementById('rb-btn-cerrar').style.display='block';
+  }
+  if(!rbCaptures.length){area.innerHTML='<div class="empty-state" style="padding:2rem 1rem"><i class="ti ti-package"></i>Sin capturas aún — escanea un producto</div>';return;}
+  let html='';
+  [...validas,...anuladas].forEach(c=>{
+    const anulada=c.estado==='Anulada';
+    html+=`<div class="rb-capture-row${anulada?' anulada':''}" ${anulada?'':`onclick="rbOpenAnular('${c.id}')"`}>
+      <i class="ti ti-${anulada?'trash':'package'}" style="color:var(--${anulada?'text3':'blue'});font-size:20px;flex-shrink:0"></i>
+      <div style="flex:1;min-width:0">
+        <div class="rb-capture-ean">${c.ean}</div>
+        <div class="rb-capture-vence">Vence: ${c.vence||'Sin fecha'}</div>
+      </div>
+      <div>
+        <div class="rb-capture-cant">${anulada?'—':c.cantidad}</div>
+        ${anulada?'<div style="font-size:10px;color:var(--text3);text-align:right">Anulada</div>':''}
+      </div>
+    </div>`;
+  });
+  area.innerHTML=html;
+}
+
+// --- ESCANEO con cámara (html5-qrcode, mismo que ya usa la app) ---
+let rbScanCallback=null;
+async function rbStartScan(mode,onCode){
+  rbScanMode=mode;
+  rbScanCallback=onCode;
+  document.getElementById('rb-scan-modal-title').textContent=mode==='pallet'?'Escanear etiqueta del pallet':'Escanear EAN del producto';
+  document.getElementById('rb-scan-modal-hint').textContent=mode==='pallet'?'Apunta al código de barras del pallet (Code 128)':'Apunta al código EAN del producto';
+  document.getElementById('rb-scan-modal-overlay').classList.add('open');
+  if(rbScanInstance){try{await rbScanInstance.stop();}catch(e){} rbScanInstance=null;}
+  try{
+    rbScanInstance=new Html5Qrcode('rb-scan-reader',{experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
+    await rbScanInstance.start(
+      {facingMode:'environment'},
+      {fps:15,aspectRatio:1.333,disableFlip:false,
+       formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39]},
+      async (decoded)=>{
+        await rbStopScan();
+        if(rbScanCallback)rbScanCallback(decoded);
+      },
+      ()=>{}
+    );
+    try{await rbScanInstance.applyVideoConstraints({width:{ideal:1920},height:{ideal:1080},advanced:[{focusMode:'continuous'}]});}catch(e){}
+  }catch(e){toast('No se pudo abrir la cámara: '+(e&&e.message?e.message:e));rbCloseScanModal();}
+}
+async function rbStopScan(){
+  if(rbScanInstance){try{await rbScanInstance.stop();}catch(e){} rbScanInstance=null;}
+}
+function rbCloseScanModal(){
+  rbStopScan();
+  document.getElementById('rb-scan-modal-overlay').classList.remove('open');
+  rbScanCallback=null;
+}
+
+// FAB escanear → flujo: scan EAN → si es nuevo pide cantidad y fecha → registrar
+async function rbFabScan(){
+  await rbStartScan('ean',async(ean)=>{
+    // validar que sea 6-14 dígitos
+    const cleanEan=String(ean).replace(/\D/g,'');
+    if(cleanEan.length<6||cleanEan.length>14){toast('Código no reconocido como EAN válido');return;}
+    // ¿ya existe captura válida para este EAN en este pallet?
+    const yaExiste=rbCaptures.find(c=>c.ean===cleanEan&&c.estado==='Válida');
+    if(yaExiste){
+      // idempotente: incrementa cantidad en un modal rápido
+      rbOpenAddCantidad(cleanEan,true);
+    } else {
+      // nuevo EAN: pedir cantidad y fecha de vencimiento
+      rbOpenAddCantidad(cleanEan,false);
+    }
+  });
+}
+
+// También se puede ingresar EAN a mano
+function rbManualEAN(){
+  const ean=(prompt('Ingresa el código de barras del producto (6–14 dígitos):')||'').trim().replace(/\D/g,'');
+  if(!ean||ean.length<6||ean.length>14){if(ean)toast('EAN inválido (debe tener 6–14 dígitos)');return;}
+  const yaExiste=rbCaptures.find(c=>c.ean===ean&&c.estado==='Válida');
+  rbOpenAddCantidad(ean,!!yaExiste);
+}
+
+function rbOpenAddCantidad(ean,tieneVence){
+  rbPendingEAN=ean;rbVenceSelec=null;rbVenceCalendar=false;
+  document.getElementById('rb-add-ean').textContent=ean;
+  document.getElementById('rb-add-cant-input').value='1';
+  document.getElementById('rb-add-err').style.display='none';
+  // Si ya tiene fecha en este pallet, se muestra info y no se vuelve a pedir
+  const capturaExist=rbCaptures.find(c=>c.ean===ean&&c.estado==='Válida');
+  const yaVence=capturaExist?.vence;
+  const venceSection=document.getElementById('rb-add-vence-section');
+  if(yaVence){
+    venceSection.innerHTML=`<div style="font-size:12px;color:var(--text2)"><i class="ti ti-calendar"></i> Vencimiento registrado: <strong>${yaVence}</strong></div>`;
+    rbVenceSelec=yaVence;
+  } else {
+    venceSection.innerHTML=`
+      <label style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px">Fecha de vencimiento</label>
+      <div class="rb-vence-opts">
+        <button class="rb-vence-btn" id="rbv-btn-sf" onclick="rbSelectVence('sin-fecha')">Sin fecha</button>
+        <button class="rb-vence-btn" id="rbv-btn-cal" onclick="rbToggleVenceCal()"><i class="ti ti-calendar"></i> Elegir fecha</button>
+      </div>
+      <div id="rb-vence-cal-wrap" style="display:none;margin-top:6px">
+        <input type="date" id="rb-vence-date" style="width:100%;height:40px;padding:0 12px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);font-size:14px" onchange="rbOnDatePick()">
+      </div>`;
+  }
+  document.getElementById('rb-add-modal-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('rb-add-cant-input').focus(),100);
+}
+function rbSelectVence(val){
+  rbVenceSelec=val==='sin-fecha'?'Sin fecha':val;
+  document.querySelectorAll('.rb-vence-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('rbv-btn-sf')?.classList.toggle('active',val==='sin-fecha');
+}
+function rbToggleVenceCal(){
+  const wrap=document.getElementById('rb-vence-cal-wrap');
+  if(!wrap)return;
+  rbVenceCalendar=!rbVenceCalendar;
+  wrap.style.display=rbVenceCalendar?'block':'none';
+  document.getElementById('rbv-btn-cal')?.classList.toggle('active',rbVenceCalendar);
+  if(rbVenceCalendar)document.getElementById('rb-vence-date').focus();
+}
+function rbOnDatePick(){
+  const val=document.getElementById('rb-vence-date').value;
+  if(!val)return;
+  const[y,m,d]=val.split('-');
+  rbVenceSelec=`${d}/${m}/${y}`;
+  // quitar active de "sin fecha"
+  document.getElementById('rbv-btn-sf')?.classList.remove('active');
+  document.getElementById('rbv-btn-cal')?.classList.add('active');
+}
+function rbCloseAddModal(){document.getElementById('rb-add-modal-overlay').classList.remove('open');rbPendingEAN=null;rbVenceSelec=null;}
+
+async function rbSubmitCaptura(){
+  const ean=rbPendingEAN;
+  const cantRaw=document.getElementById('rb-add-cant-input').value;
+  const cantidad=Number(cantRaw);
+  const err=document.getElementById('rb-add-err');
+  err.style.display='none';
+  if(!ean){rbCloseAddModal();return;}
+  if(!cantidad||cantidad<1||cantidad>99999||!Number.isInteger(cantidad)){err.textContent='Cantidad inválida (1–99,999 entero).';err.style.display='block';return;}
+  if(!rbVenceSelec){err.textContent='Selecciona la fecha de vencimiento o "Sin fecha".';err.style.display='block';return;}
+  rbCloseAddModal();
+  toast('Registrando...');
+  try{
+    const id=Date.now()+'-'+Math.random().toString(36).slice(2,6);
+    const cap={id,ean,cantidad,vence:rbVenceSelec};
+    const d=await rbPost({accion:'registrar',tienda:rbSession.tienda,pallet:rbPalletActual,cap,equipo:rbSession.equipo});
+    if(d.ok){
+      // Actualizar captura local
+      const idx=rbCaptures.findIndex(c=>c.ean===ean&&c.estado==='Válida');
+      if(idx>=0){rbCaptures[idx].cantidad=d.nuevaCantidad||cantidad;rbCaptures[idx].vence=d.vence||rbVenceSelec;}
+      else rbCaptures.unshift({id,ean,cantidad,vence:d.vence||rbVenceSelec,estado:'Válida'});
+      rbRenderCaptures();
+      toast('✓ '+ean+' — '+cantidad+' pzas');
+    }else toast('Error: '+d.error);
+  }catch{toast('Sin conexión — intenta de nuevo');}
+}
+
+// --- ANULAR CAPTURA ---
+let rbAnularId=null;
+function rbOpenAnular(id){
+  rbAnularId=id;
+  const c=rbCaptures.find(x=>x.id===id);
+  if(!c||rbPalletCerrado)return;
+  document.getElementById('rb-anular-ean').textContent=c.ean;
+  document.getElementById('rb-anular-cant').textContent=c.cantidad+' pzas · '+c.vence;
+  document.getElementById('rb-anular-overlay').classList.add('open');
+}
+function rbCloseAnular(){document.getElementById('rb-anular-overlay').classList.remove('open');rbAnularId=null;}
+async function rbConfirmarAnular(){
+  const id=rbAnularId;rbCloseAnular();
+  if(!id)return;
+  toast('Anulando...');
+  try{
+    const d=await rbPost({accion:'anular',tienda:rbSession.tienda,pallet:rbPalletActual,id});
+    if(d.ok){
+      const idx=rbCaptures.findIndex(c=>c.id===id);
+      if(idx>=0)rbCaptures[idx].estado='Anulada';
+      rbRenderCaptures();toast('Captura anulada');
+    }else toast('Error: '+d.error);
+  }catch{toast('Sin conexión');}
+}
+
+// --- CERRAR PALLET ---
+async function rbCerrarPallet(){
+  const validas=rbCaptures.filter(c=>c.estado==='Válida');
+  if(!validas.length){toast('No hay capturas válidas para cerrar');return;}
+  if(!confirm(`¿Cerrar el pallet ${rbPalletActual}?\n\n${validas.length} productos · ${validas.reduce((s,c)=>s+(Number(c.cantidad)||0),0)} piezas\n\nEsta acción no se puede deshacer.`))return;
+  toast('Cerrando pallet...');
+  try{
+    const d=await rbPost({accion:'cerrar',tienda:rbSession.tienda,pallet:rbPalletActual});
+    if(d.ok){
+      rbPalletCerrado=true;
+      rbRenderCaptures();
+      toast(`✓ Pallet cerrado — ${d.productos} prod · ${d.piezas} pzas`);
+    }else toast('Error: '+d.error);
+  }catch{toast('Sin conexión');}
+}
+
+// --- ARRANQUE DEL MÓDULO ---
+function rbOnLoginScreen(){rbLoadTiendas();document.getElementById('rb-equipo-input').value='';}
+
+// ============================================================
 // Arranque de la aplicación — restaura sesión guardada (de cualquiera
 // de los dos módulos) o muestra la bienvenida con los 2 accesos.
 // ============================================================
@@ -3086,9 +3553,16 @@ function descargarSugerenciasCSV(){
   try{
     const savedSession=ls(K_SESSION);
     const savedSc=ls(K_SESSION_SC);
+    const savedRb=ls(K_SESSION_RB);
     if(savedSession){session=savedSession;onLogin();return;}
     if(savedSc){scSession=savedSc;onLoginScanner();return;}
-  }catch(e){localStorage.removeItem(K_SESSION);localStorage.removeItem(K_SESSION_SC);}
+    if(savedRb){
+      rbSession=savedRb;
+      showScreen('scr-recibo-pallet');
+      rbOnAbrirPalletScreen();
+      return;
+    }
+  }catch(e){localStorage.removeItem(K_SESSION);localStorage.removeItem(K_SESSION_SC);localStorage.removeItem(K_SESSION_RB);}
   // Sin sesión guardada: si abrieron un link directo al módulo de Escáner, saltar la bienvenida
   if(MODO==='escaner')showScreen('scr-login-scanner');
   else showScreen('scr-landing');
