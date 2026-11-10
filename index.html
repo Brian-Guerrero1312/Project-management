@@ -1161,7 +1161,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 
   <!-- Lista de capturas -->
-  <div style="padding:1rem 1rem 100px" id="rb-cap-list">
+  <div style="padding:1rem 1rem 120px" id="rb-cap-list">
     <div class="empty-state" style="padding:2rem 1rem"><i class="ti ti-package"></i>Sin capturas aún — escanea un producto</div>
   </div>
 
@@ -1170,27 +1170,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button id="rb-btn-cerrar" class="btn-full" style="background:var(--green);color:#fff" onclick="rbCerrarPallet()"><i class="ti ti-check"></i> Cerrar pallet</button>
   </div>
 
-  <!-- FAB escanear EAN -->
-  <button class="rb-fab" id="rb-fab-scan" onclick="rbFabScan()"><i class="ti ti-scan"></i></button>
-
-  <!-- Botón ingreso manual -->
-  <div style="position:fixed;bottom:22px;left:18px;z-index:80">
-    <button class="icon-btn" style="background:var(--bg2);border:1px solid var(--border2);border-radius:50%;width:44px;height:44px;color:var(--text2)" onclick="rbManualEAN()" title="Ingresar EAN manual"><i class="ti ti-keyboard"></i></button>
+  <!-- Barra inferior: botón escanear producto + ingreso manual -->
+  <div style="position:fixed;bottom:0;left:0;right:0;z-index:80;background:var(--bg);border-top:0.5px solid var(--border);padding:10px 16px 20px;display:flex;gap:10px;align-items:center" id="rb-bottom-bar">
+    <button class="btn-full" id="rb-fab-scan" onclick="rbFabScan()" style="flex:1;height:48px;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px"><i class="ti ti-scan" style="font-size:20px"></i> Escanear producto</button>
+    <button class="icon-btn" style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);width:48px;height:48px;color:var(--text2);flex-shrink:0" onclick="rbManualEAN()" title="Ingresar EAN manual"><i class="ti ti-keyboard"></i></button>
   </div>
 </div>
 
-<!-- MODAL ESCANEO CÁMARA -->
-<div class="modal-overlay" id="rb-scan-modal-overlay" onclick="rbCloseScanModal()" style="display:none;align-items:flex-end">
-  <div class="modal" onclick="event.stopPropagation()" style="max-width:480px;padding:0;border-radius:var(--rl) var(--rl) 0 0;overflow:hidden">
-    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:0.5px solid var(--border)">
-      <i class="ti ti-camera" style="color:var(--blue);font-size:20px"></i>
-      <span style="font-weight:600;flex:1" id="rb-scan-modal-title">Escanear</span>
-      <button class="icon-btn" onclick="rbCloseScanModal()"><i class="ti ti-x"></i></button>
-    </div>
-    <div class="rb-scan-box"><div id="rb-scan-reader"></div></div>
-    <div class="rb-scan-hint" id="rb-scan-modal-hint">Apunta al código de barras</div>
-  </div>
-</div>
 
 <!-- MODAL CANTIDAD + FECHA (después de escanear EAN) -->
 <div class="modal-overlay" id="rb-add-modal-overlay" onclick="rbCloseAddModal()" style="display:none;align-items:flex-end">
@@ -3065,6 +3051,14 @@ function eanEquals(a,b){
 }
 function onScanDecoded(decodedText){
   const ean=String(decodedText).trim();
+  // Si el scanner lo activó el módulo Recibo, redirigir ahí
+  if(window._rbScanActive){
+    window._rbScanActive=false;
+    closeScannerModal();
+    const cb=rbScanCallback;rbScanCallback=null;
+    if(cb)cb(ean);
+    return;
+  }
   closeScannerModal();
   const p=scPrecarga.find(x=>eanEquals(x.ean,ean));
   // Si el EAN no está en la precarga de este TR, ya no se pierde el hallazgo: se ofrece
@@ -3345,11 +3339,11 @@ function rbRenderCaptures(){
   document.getElementById('rb-cap-counter').textContent=`${validas.length} prod · ${validas.reduce((s,c)=>s+(Number(c.cantidad)||0),0)} pzas`;
   if(rbPalletCerrado){
     document.getElementById('rb-cerrado-banner').style.display='flex';
-    document.getElementById('rb-fab-scan').style.display='none';
+    document.getElementById('rb-bottom-bar').style.display='none';
     document.getElementById('rb-btn-cerrar').style.display='none';
   }else{
     document.getElementById('rb-cerrado-banner').style.display='none';
-    document.getElementById('rb-fab-scan').style.display='flex';
+    document.getElementById('rb-bottom-bar').style.display='flex';
     document.getElementById('rb-btn-cerrar').style.display='block';
   }
   if(!rbCaptures.length){area.innerHTML='<div class="empty-state" style="padding:2rem 1rem"><i class="ti ti-package"></i>Sin capturas aún — escanea un producto</div>';return;}
@@ -3371,45 +3365,24 @@ function rbRenderCaptures(){
   area.innerHTML=html;
 }
 
-// --- ESCANEO con cámara (html5-qrcode, mismo que ya usa la app) ---
+// --- ESCANEO con cámara — reutiliza el modal y scanner de Auditoría que ya funciona en iPhone ---
 let rbScanCallback=null;
 async function rbStartScan(mode,onCode){
   rbScanMode=mode;
   rbScanCallback=onCode;
-  document.getElementById('rb-scan-modal-title').textContent=mode==='pallet'?'Escanear etiqueta del pallet':'Escanear EAN del producto';
-  document.getElementById('rb-scan-modal-hint').textContent=mode==='pallet'?'Apunta al código de barras del pallet (Code 128)':'Apunta al código EAN del producto';
-  document.getElementById('rb-scan-modal-overlay').classList.add('open');
-  if(rbScanInstance){try{await rbScanInstance.stop();}catch(e){} rbScanInstance=null;}
-  try{
-    rbScanInstance=new Html5Qrcode('rb-scan-reader',{
-      formatsToSupport:[
-        Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39
-      ],
-      useBarCodeDetectorIfSupported:true,
-      verbose:false
-    });
-    await rbScanInstance.start(
-      {facingMode:'environment'},
-      {fps:15,aspectRatio:1.333,disableFlip:false},
-      async (decoded)=>{
-        await rbStopScan();
-        if(rbScanCallback)rbScanCallback(decoded);
-      },
-      ()=>{}
-    );
-    try{await rbScanInstance.applyVideoConstraints({width:{ideal:1920},height:{ideal:1080},advanced:[{focusMode:'continuous'}]});}catch(e){}
-  }catch(e){toast('No se pudo abrir la cámara: '+(e&&e.message?e.message:e));rbCloseScanModal();}
+  // Cambiar el hint del modal existente
+  const hint=document.querySelector('#modal-scan-overlay .scanner-hint');
+  if(hint)hint.textContent=mode==='pallet'?'Apunta al código de barras del pallet':'Apunta al EAN del producto';
+  // Marcar que el scanner lo está usando Recibo (para que onScanDecoded lo redirija)
+  window._rbScanActive=true;
+  openScanner();
 }
 async function rbStopScan(){
-  if(rbScanInstance){try{await rbScanInstance.stop();}catch(e){} rbScanInstance=null;}
-}
-function rbCloseScanModal(){
-  rbStopScan();
-  document.getElementById('rb-scan-modal-overlay').classList.remove('open');
+  window._rbScanActive=false;
   rbScanCallback=null;
+  await closeScannerModal();
 }
+function rbCloseScanModal(){rbStopScan();}
 
 // FAB escanear → flujo: scan EAN → si es nuevo pide cantidad y fecha → registrar
 async function rbFabScan(){
