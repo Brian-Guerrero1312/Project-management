@@ -3273,10 +3273,16 @@ async function rbLogin(){
   if(!tienda){err.textContent='Selecciona una tienda.';err.style.display='block';return;}
   // Equipo: generar aleatorio si no ponen nada
   const equipo=eq||('EQ-'+Math.random().toString(36).slice(2,7).toUpperCase());
-  rbSession={tienda,equipo,tiendaNombre:rbTiendas.find(t=>t.codigo===tienda)?.nombre||tienda};
+  // Nombre de tienda: desde la lista cargada o desde el select directamente
+  const optEl=document.querySelector('#rb-tienda-select option[value="'+tienda+'"]');
+  const tiendaNombre=optEl?optEl.textContent:(rbTiendas.find(t=>t.codigo===tienda)?.nombre||tienda);
+  rbSession={tienda,equipo,tiendaNombre};
   lsSet(K_SESSION_RB,rbSession);
-  toast('¡Bienvenido! Equipo: '+equipo);
-  rbShowScreen('scr-recibo-pallet');
+  toast('Equipo: '+equipo);
+  rbOnAbrirPalletScreen();
+  // Usar showScreen directo para evitar hook de rbOnLoginScreen
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('scr-recibo-pallet').classList.add('active');
   document.getElementById('rb-pallet-equipo').textContent='Equipo: '+equipo;
 }
 function rbLogout(){
@@ -3287,14 +3293,15 @@ function rbLogout(){
   showScreen('scr-landing');
 }
 
+const RB_TIENDAS_DEFAULT=[{codigo:'1406',nombre:'Granjas'},{codigo:'1412',nombre:'Portales Norte'}];
 async function rbLoadTiendas(){
   const sel=document.getElementById('rb-tienda-select');
   sel.innerHTML='<option value="">Cargando...</option>';
   try{
     const d=await rbPost({accion:'tiendas'});
-    rbTiendas=d.ok?d.data:[];
-    sel.innerHTML='<option value="">— Selecciona tu tienda —</option>'+rbTiendas.map(t=>`<option value="${t.codigo}">${t.codigo} — ${t.nombre}</option>`).join('');
-  }catch{sel.innerHTML='<option value="">Error al cargar tiendas</option>';}
+    rbTiendas=(d.ok&&d.data&&d.data.length)?d.data:RB_TIENDAS_DEFAULT;
+  }catch{rbTiendas=RB_TIENDAS_DEFAULT;}
+  sel.innerHTML='<option value="">— Selecciona tu tienda —</option>'+rbTiendas.map(t=>`<option value="${t.codigo}">${t.codigo} — ${t.nombre}</option>`).join('');
 }
 
 // --- PANTALLA PALLET ---
@@ -3554,14 +3561,16 @@ function rbOnLoginScreen(){rbLoadTiendas();document.getElementById('rb-equipo-in
     const savedSession=ls(K_SESSION);
     const savedSc=ls(K_SESSION_SC);
     const savedRb=ls(K_SESSION_RB);
-    if(savedSession){session=savedSession;onLogin();return;}
-    if(savedSc){scSession=savedSc;onLoginScanner();return;}
+    // Recibo tiene prioridad: si hay sesión de Recibo activa, va directo ahí
     if(savedRb){
       rbSession=savedRb;
-      showScreen('scr-recibo-pallet');
+      document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+      document.getElementById('scr-recibo-pallet').classList.add('active');
       rbOnAbrirPalletScreen();
       return;
     }
+    if(savedSession){session=savedSession;onLogin();return;}
+    if(savedSc){scSession=savedSc;onLoginScanner();return;}
   }catch(e){localStorage.removeItem(K_SESSION);localStorage.removeItem(K_SESSION_SC);localStorage.removeItem(K_SESSION_RB);}
   // Sin sesión guardada: si abrieron un link directo al módulo de Escáner, saltar la bienvenida
   if(MODO==='escaner')showScreen('scr-login-scanner');
