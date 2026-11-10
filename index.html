@@ -297,6 +297,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .rb-vence-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem}
 .rb-vence-btn{padding:10px 8px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s}
 .rb-vence-btn.active{border-color:var(--blue);background:var(--blue-bg);color:var(--blue)}
+#rb-scan-modal-overlay.open,#rb-add-modal-overlay.open,#rb-anular-overlay.open{display:flex}
 </style>
 </head>
 <body>
@@ -1180,7 +1181,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <!-- MODAL ESCANEO CÁMARA -->
 <div class="modal-overlay" id="rb-scan-modal-overlay" onclick="rbCloseScanModal()" style="display:none;align-items:flex-end">
-  <style>#rb-scan-modal-overlay.open{display:flex}</style>
   <div class="modal" onclick="event.stopPropagation()" style="max-width:480px;padding:0;border-radius:var(--rl) var(--rl) 0 0;overflow:hidden">
     <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:0.5px solid var(--border)">
       <i class="ti ti-camera" style="color:var(--blue);font-size:20px"></i>
@@ -1194,7 +1194,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <!-- MODAL CANTIDAD + FECHA (después de escanear EAN) -->
 <div class="modal-overlay" id="rb-add-modal-overlay" onclick="rbCloseAddModal()" style="display:none;align-items:flex-end">
-  <style>#rb-add-modal-overlay.open{display:flex}</style>
   <div class="modal" onclick="event.stopPropagation()" style="max-width:420px">
     <div class="modal-head">
       <span style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Código escaneado</span>
@@ -1217,7 +1216,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <!-- MODAL ANULAR CAPTURA -->
 <div class="modal-overlay" id="rb-anular-overlay" onclick="rbCloseAnular()" style="display:none;align-items:flex-end">
-  <style>#rb-anular-overlay.open{display:flex}</style>
   <div class="modal" onclick="event.stopPropagation()" style="max-width:420px">
     <div class="modal-head">
       <span style="font-weight:700;font-size:16px;color:var(--red)"><i class="ti ti-trash"></i> Anular captura</span>
@@ -3382,6 +3380,8 @@ async function rbStartScan(mode,onCode){
   document.getElementById('rb-scan-modal-hint').textContent=mode==='pallet'?'Apunta al código de barras del pallet (Code 128)':'Apunta al código EAN del producto';
   document.getElementById('rb-scan-modal-overlay').classList.add('open');
   if(rbScanInstance){try{await rbScanInstance.stop();}catch(e){} rbScanInstance=null;}
+  // Esperar a que el modal sea visible antes de montar la cámara
+  await new Promise(r=>setTimeout(r,120));
   try{
     rbScanInstance=new Html5Qrcode('rb-scan-reader',{experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
     await rbScanInstance.start(
