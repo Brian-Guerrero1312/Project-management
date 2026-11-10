@@ -3381,20 +3381,36 @@ async function rbStartScan(mode,onCode){
   document.getElementById('rb-scan-modal-overlay').classList.add('open');
   if(rbScanInstance){try{await rbScanInstance.stop();}catch(e){} rbScanInstance=null;}
   // Esperar a que el modal sea visible antes de montar la cámara
-  await new Promise(r=>setTimeout(r,120));
+  await new Promise(r=>setTimeout(r,180));
   try{
-    rbScanInstance=new Html5Qrcode('rb-scan-reader',{experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
+    const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream;
+    const config={fps:12,aspectRatio:1.333,disableFlip:false};
+    // En Android usamos BarcodeDetector nativo + lista de formatos; en iOS dejamos ZXing puro sin lista
+    if(!isIOS){
+      try{
+        config.formatsToSupport=[
+          Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39
+        ];
+      }catch(e){}
+    }
+    rbScanInstance=new Html5Qrcode('rb-scan-reader',{
+      experimentalFeatures:{useBarCodeDetectorIfSupported:!isIOS},
+      verbose:false
+    });
     await rbScanInstance.start(
       {facingMode:'environment'},
-      {fps:15,aspectRatio:1.333,disableFlip:false,
-       formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39]},
+      config,
       async (decoded)=>{
         await rbStopScan();
         if(rbScanCallback)rbScanCallback(decoded);
       },
       ()=>{}
     );
-    try{await rbScanInstance.applyVideoConstraints({width:{ideal:1920},height:{ideal:1080},advanced:[{focusMode:'continuous'}]});}catch(e){}
+    if(!isIOS){
+      try{await rbScanInstance.applyVideoConstraints({width:{ideal:1280},height:{ideal:720},advanced:[{focusMode:'continuous'}]});}catch(e){}
+    }
   }catch(e){toast('No se pudo abrir la cámara: '+(e&&e.message?e.message:e));rbCloseScanModal();}
 }
 async function rbStopScan(){
