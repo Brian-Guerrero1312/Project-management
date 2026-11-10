@@ -3411,10 +3411,11 @@ function rbOpenAddCantidad(ean,tieneVence){
     venceSection.innerHTML=`<div style="font-size:12px;color:var(--text2)"><i class="ti ti-calendar"></i> Vencimiento registrado: <strong>${yaVence}</strong></div>`;
     rbVenceSelec=yaVence;
   } else {
+    rbVenceSelec='Sin fecha'; // default: sin fecha
     venceSection.innerHTML=`
       <label style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px">Fecha de vencimiento</label>
       <div class="rb-vence-opts">
-        <button class="rb-vence-btn" id="rbv-btn-sf" onclick="rbSelectVence('sin-fecha')">Sin fecha</button>
+        <button class="rb-vence-btn active" id="rbv-btn-sf" onclick="rbSelectVence('sin-fecha')">Sin fecha</button>
         <button class="rb-vence-btn" id="rbv-btn-cal" onclick="rbToggleVenceCal()"><i class="ti ti-calendar"></i> Elegir fecha</button>
       </div>
       <div id="rb-vence-cal-wrap" style="display:none;margin-top:6px">
