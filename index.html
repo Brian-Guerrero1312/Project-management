@@ -3364,7 +3364,10 @@ async function rbStartScan(mode,onCode){
   const hint=document.querySelector('#modal-scan-overlay .scanner-hint');
   if(hint)hint.textContent=mode==='pallet'?'Apunta al código de barras del pallet':'Apunta al EAN del producto';
   // Pasamos el callback directo — sin interceptor — para que html5-qrcode lo llame de inmediato
+  let rbFired=false;
   openScanner(async function(decodedText){
+    if(rbFired)return;
+    rbFired=true;
     const code=String(decodedText).trim();
     rbScanCallback=null;
     await closeScannerModal();
@@ -3380,12 +3383,9 @@ function rbCloseScanModal(){rbStopScan();}
 // FAB escanear → flujo: scan EAN → si es nuevo pide cantidad y fecha → registrar
 async function rbFabScan(){
   await rbStartScan('ean',async(ean)=>{
-    toast('EAN recibido: '+String(ean));
     const cleanEan=String(ean).replace(/\D/g,'');
-    toast('EAN limpio: '+cleanEan+' ('+cleanEan.length+' dígitos)');
-    if(cleanEan.length<6||cleanEan.length>14){toast('❌ Longitud inválida: '+cleanEan.length);return;}
+    if(cleanEan.length<6||cleanEan.length>14){toast('Código no reconocido como EAN válido');return;}
     const yaExiste=rbCaptures.find(c=>c.ean===cleanEan&&c.estado==='Válida');
-    toast('Abriendo modal...');
     rbOpenAddCantidad(cleanEan,!!yaExiste);
   });
 }
