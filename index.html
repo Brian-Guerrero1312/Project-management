@@ -3011,25 +3011,30 @@ async function openScanner(customCallback){
       useBarCodeDetectorIfSupported:true,
       verbose:false
     });
+    const cb=customCallback||onScanDecoded;
+    toast('🎥 Iniciando cámara...');
     await html5QrCodeInstance.start(
       {facingMode:'environment'},
       {
         fps:15,
-        // Sin qrbox: se analiza el cuadro completo de la cámara en vez de una zona
-        // recortada, así no hay que encajar el código en un recuadro pequeño ni
-        // acercarse tanto — se puede leer desde más lejos y en cualquier posición.
         aspectRatio:1.333,
         disableFlip:false
       },
-      customCallback||onScanDecoded,
-      ()=>{}
+      function(decodedText,decodedResult){
+        toast('📦 Detectado: '+String(decodedText).slice(0,20));
+        cb(decodedText,decodedResult);
+      },
+      function(err){
+        // errores de frame — normales, solo loguear si son raros
+        if(err&&String(err).indexOf('No MultiFormat')===-1&&String(err).indexOf('No barcode')===-1){
+          console.warn('scan err:',err);
+        }
+      }
     );
-    // Mejor esfuerzo — mayor resolución/enfoque continuo si el dispositivo lo soporta.
-    // Se pide DESPUÉS de que la cámara ya abrió, para que un rechazo de esta
-    // opción nunca impida que el lector funcione.
+    toast('✅ Cámara lista — apunta al código');
     try{ await html5QrCodeInstance.applyVideoConstraints({width:{ideal:1920},height:{ideal:1080},advanced:[{focusMode:'continuous'}]}); }catch(e){}
   }catch(e){
-    toast('No se pudo abrir la cámara: '+(e&&e.message?e.message:e));
+    toast('❌ Error cámara: '+(e&&e.message?e.message:String(e)));
     closeScannerModal();
   }
 }
@@ -3370,6 +3375,7 @@ async function rbStartScan(mode,onCode){
   if(hint)hint.textContent=mode==='pallet'?'Apunta al código de barras del pallet':'Apunta al EAN del producto';
   // Pasamos el callback directo — sin interceptor — para que html5-qrcode lo llame de inmediato
   openScanner(function(decodedText){
+    toast('✅ Leído: '+String(decodedText).trim());
     const code=String(decodedText).trim();
     closeScannerModal();
     rbScanCallback=null;
