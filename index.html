@@ -2989,7 +2989,7 @@ function descargarComparativaCSV(){
 
 // --- Cámara / escaneo de código de barras ---
 let html5QrCodeInstance=null;
-async function openScanner(){
+async function openScanner(customCallback){
   // Si quedó una instancia previa a medio cerrar, la liberamos primero — si no, el navegador
   // puede negar el acceso a la cámara por creer que sigue en uso (y el lector "no abre").
   if(html5QrCodeInstance){
@@ -3021,7 +3021,7 @@ async function openScanner(){
         aspectRatio:1.333,
         disableFlip:false
       },
-      onScanDecoded,
+      customCallback||onScanDecoded,
       ()=>{}
     );
     // Mejor esfuerzo — mayor resolución/enfoque continuo si el dispositivo lo soporta.
@@ -3051,14 +3051,6 @@ function eanEquals(a,b){
 }
 function onScanDecoded(decodedText){
   const ean=String(decodedText).trim();
-  // Si el scanner lo activó el módulo Recibo, redirigir ahí
-  if(window._rbScanActive){
-    window._rbScanActive=false;
-    closeScannerModal();
-    const cb=rbScanCallback;rbScanCallback=null;
-    if(cb)cb(ean);
-    return;
-  }
   closeScannerModal();
   const p=scPrecarga.find(x=>eanEquals(x.ean,ean));
   // Si el EAN no está en la precarga de este TR, ya no se pierde el hallazgo: se ofrece
@@ -3366,6 +3358,9 @@ function rbRenderCaptures(){
 }
 
 // --- ESCANEO con cámara — reutiliza el modal y scanner de Auditoría que ya funciona en iPhone ---
+// Pasamos onCode DIRECTAMENTE a openScanner() como customCallback, igual que hace Auditoría/Misiones.
+// Esto evita la capa extra de _rbScanActive + onScanDecoded que era la causa de que los códigos
+// se detectaran pero no se procesaran.
 let rbScanCallback=null;
 async function rbStartScan(mode,onCode){
   rbScanMode=mode;
@@ -3373,12 +3368,15 @@ async function rbStartScan(mode,onCode){
   // Cambiar el hint del modal existente
   const hint=document.querySelector('#modal-scan-overlay .scanner-hint');
   if(hint)hint.textContent=mode==='pallet'?'Apunta al código de barras del pallet':'Apunta al EAN del producto';
-  // Marcar que el scanner lo está usando Recibo (para que onScanDecoded lo redirija)
-  window._rbScanActive=true;
-  openScanner();
+  // Pasamos el callback directo — sin interceptor — para que html5-qrcode lo llame de inmediato
+  openScanner(function(decodedText){
+    const code=String(decodedText).trim();
+    closeScannerModal();
+    rbScanCallback=null;
+    onCode(code);
+  });
 }
 async function rbStopScan(){
-  window._rbScanActive=false;
   rbScanCallback=null;
   await closeScannerModal();
 }
