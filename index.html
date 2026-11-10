@@ -3012,7 +3012,6 @@ async function openScanner(customCallback){
       verbose:false
     });
     const cb=customCallback||onScanDecoded;
-    toast('🎥 Iniciando cámara...');
     await html5QrCodeInstance.start(
       {facingMode:'environment'},
       {
@@ -3020,18 +3019,9 @@ async function openScanner(customCallback){
         aspectRatio:1.333,
         disableFlip:false
       },
-      function(decodedText,decodedResult){
-        toast('📦 Detectado: '+String(decodedText).slice(0,20));
-        cb(decodedText,decodedResult);
-      },
-      function(err){
-        // errores de frame — normales, solo loguear si son raros
-        if(err&&String(err).indexOf('No MultiFormat')===-1&&String(err).indexOf('No barcode')===-1){
-          console.warn('scan err:',err);
-        }
-      }
+      cb,
+      ()=>{}
     );
-    toast('✅ Cámara lista — apunta al código');
     try{ await html5QrCodeInstance.applyVideoConstraints({width:{ideal:1920},height:{ideal:1080},advanced:[{focusMode:'continuous'}]}); }catch(e){}
   }catch(e){
     toast('❌ Error cámara: '+(e&&e.message?e.message:String(e)));
@@ -3374,11 +3364,10 @@ async function rbStartScan(mode,onCode){
   const hint=document.querySelector('#modal-scan-overlay .scanner-hint');
   if(hint)hint.textContent=mode==='pallet'?'Apunta al código de barras del pallet':'Apunta al EAN del producto';
   // Pasamos el callback directo — sin interceptor — para que html5-qrcode lo llame de inmediato
-  openScanner(function(decodedText){
-    toast('✅ Leído: '+String(decodedText).trim());
+  openScanner(async function(decodedText){
     const code=String(decodedText).trim();
-    closeScannerModal();
     rbScanCallback=null;
+    await closeScannerModal();
     onCode(code);
   });
 }
