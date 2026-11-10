@@ -3380,18 +3380,13 @@ function rbCloseScanModal(){rbStopScan();}
 // FAB escanear → flujo: scan EAN → si es nuevo pide cantidad y fecha → registrar
 async function rbFabScan(){
   await rbStartScan('ean',async(ean)=>{
-    // validar que sea 6-14 dígitos
+    toast('EAN recibido: '+String(ean));
     const cleanEan=String(ean).replace(/\D/g,'');
-    if(cleanEan.length<6||cleanEan.length>14){toast('Código no reconocido como EAN válido');return;}
-    // ¿ya existe captura válida para este EAN en este pallet?
+    toast('EAN limpio: '+cleanEan+' ('+cleanEan.length+' dígitos)');
+    if(cleanEan.length<6||cleanEan.length>14){toast('❌ Longitud inválida: '+cleanEan.length);return;}
     const yaExiste=rbCaptures.find(c=>c.ean===cleanEan&&c.estado==='Válida');
-    if(yaExiste){
-      // idempotente: incrementa cantidad en un modal rápido
-      rbOpenAddCantidad(cleanEan,true);
-    } else {
-      // nuevo EAN: pedir cantidad y fecha de vencimiento
-      rbOpenAddCantidad(cleanEan,false);
-    }
+    toast('Abriendo modal...');
+    rbOpenAddCantidad(cleanEan,!!yaExiste);
   });
 }
 
